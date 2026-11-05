@@ -51,16 +51,24 @@ const ton = {
   fanfare() { [659, 784, 1047, 1319].forEach((f, i) => this.piep(f, 0.12, 0.05, 'square', i * 0.08)); },
   verloren() { [392, 330, 262, 196].forEach((f, i) => this.piep(f, 0.17, 0.06, 'square', i * 0.12)); },
   geschafft() { [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => this.piep(f, 0.13, 0.055, 'square', i * 0.09)); },
-  zaehlen(n) { this.piep(n === 0 ? 880 : 440, 0.14, 0.05, 'square'); }
+  zaehlen(n) { this.piep(n === 0 ? 880 : 440, 0.14, 0.05, 'square'); },
+  knapp(n) { const f = 700 * Math.pow(2, n / 6); this.piep(f, 0.16, 0.035, 'triangle', 0, f * 0.45); this.piep(f * 1.5, 0.08, 0.02, 'square', 0.04); },
+  reihe() { [988, 1319, 1760].forEach((f, i) => this.piep(f, 0.08, 0.028, 'square', i * 0.05)); },
+  dampf() { this.piep(90, 0.7, 0.09, 'sawtooth', 0, 320); [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => this.piep(f, 0.12, 0.05, 'square', 0.1 + i * 0.06)); },
+  krach() { this.piep(210, 0.2, 0.09, 'sawtooth', 0, 45); this.piep(70, 0.16, 0.08, 'square', 0.01, 38); this.piep(1400, 0.05, 0.025, 'square', 0, 500); },
+  spurt() { [784, 784, 1047].forEach((f, i) => this.piep(f, 0.11, 0.05, 'square', i * 0.11)); },
+  herz() { this.piep(62, 0.11, 0.12, 'sine', 0, 44); this.piep(56, 0.13, 0.09, 'sine', 0.16, 40); },
+  stern(n) { const f = 784 * Math.pow(2, n * 4 / 12); this.piep(f, 0.18, 0.05, 'square', 0.12 + n * 0.15); this.piep(f * 2, 0.22, 0.025, 'triangle', 0.12 + n * 0.15); }
 };
 
 const musik = {
-  lied: null, schritt: 0, naechste: 0, uhr: null, schnell: 1,
+  lied: null, schritt: 0, naechste: 0, uhr: null, schnell: 1, mal: 1,
   starte(weltNr, boss) {
     this.stoppe();
     if (!ton.ctx) return;
     this.lied = MUSIK[weltNr % MUSIK.length];
     this.schnell = boss ? 1.14 : 1;
+    this.mal = 1;
     this.schritt = 0;
     this.naechste = ton.ctx.currentTime + 0.1;
     this.uhr = setInterval(() => this.takt(), 60);
@@ -72,7 +80,7 @@ const musik = {
   takt() {
     if (!ton.ctx || ton.ctx.state !== 'running') return;
     const jetzt = ton.ctx.currentTime;
-    const dauer = 60 / (this.lied.bpm * this.schnell) / 2;
+    const dauer = 60 / (this.lied.bpm * this.schnell * this.mal) / 2;
     if (this.naechste < jetzt) this.naechste = jetzt + 0.02;
     while (this.naechste < jetzt + 0.2) {
       if (daten.musik) this.note(this.schritt, this.naechste - jetzt, dauer);
@@ -110,7 +118,9 @@ function schleife(zeit) {
   dt = Math.min(dt, 0.05);
 
   if (modus === 'lauf') {
-    vorrat += dt;
+    // Beim knappen Ausweichen läuft die Zeit einen Augenblick langsamer
+    vorrat += zeitlupe > 0 ? dt * 0.4 : dt;
+    zeitlupe = Math.max(0, zeitlupe - dt);
     while (vorrat >= TAKT) {
       schritt(TAKT);
       vorrat -= TAKT;
@@ -156,6 +166,13 @@ const LEHRE = {
 function zeigeLehre() {
   const st = s;
   if (!st.k || modus !== 'lauf') return;
+  if (st.rausch >= 25 && !daten.gesehen.dampf) {
+    daten.gesehen.dampf = true;
+    speichere();
+    lehrText = 'Weich aus und sammle Reihen: Ist die Leiste voll, gibt es VOLLDAMPF!';
+    lehrRest = 3.4;
+    return;
+  }
   for (let i = st.teilIndex; i < st.k.teile.length; i++) {
     const o = st.k.teile[i];
     if (o.d > st.dist + st.tempo * 2.4) break;
@@ -179,13 +196,19 @@ function zeigeHud() {
   const stand = [
     Math.floor(st.punkte), st.kette, st.goldfisch > 0, st.muenzenHier, st.herzen, st.ring,
     st.meldung && st.meldung.text, st.blase && st.blase.text, lehrRest > 0 ? lehrText : '',
-    Math.floor((st.magnet + 0.99)), Math.floor(st.stiefel + 0.99), Math.floor(st.goldfisch + 0.99), Math.floor(st.flug + 0.99), Math.round((st.dist / (st.endlos ? st.naechsteWeltBei : st.ziel)) * 200)
+    Math.floor((st.magnet + 0.99)), Math.floor(st.stiefel + 0.99), Math.floor(st.goldfisch + 0.99), Math.floor(st.flug + 0.99), Math.round((st.dist / (st.endlos ? st.naechsteWeltBei : st.ziel)) * 200),
+    Math.floor(st.rausch), Math.ceil(st.dampf * 10), st.tot > 0, st.fertig > 0
   ].join('|');
   if (stand === hudStand) return;
   hudStand = stand;
   $('punkte').textContent = zahl(st.punkte);
   $('muenzen').textContent = zahl(st.muenzenHier);
-  const faktor = st.kette * (st.goldfisch > 0 ? 2 : 1);
+  const faktor = st.kette * (st.goldfisch > 0 ? 2 : 1) * (st.dampf > 0 ? 2 : 1);
+  const dampfAn = st.dampf > 0;
+  $('dampfBalken').style.width = (dampfAn ? st.dampf / DAMPF_DAUER * 100 : st.rausch) + '%';
+  $('dampfBox').classList.toggle('aktiv', dampfAn);
+  $('dampfBox').classList.toggle('fast', !dampfAn && st.rausch >= 75);
+  $('randGlut').className = dampfAn ? 'dampf' : (st.herzen === 1 && st.stufe.herzen > 1 && !st.tot && !st.fertig ? 'gefahr' : '');
   $('kette').textContent = 'x' + faktor;
   $('kette').classList.toggle('heiss', faktor >= 4);
   const herz = $('herzen');
@@ -199,7 +222,15 @@ function zeigeHud() {
   const lehr = lehrRest > 0 ? lehrText : '';
   $('lehre').hidden = !lehr;
   if (lehr) $('lehre').textContent = lehr;
-  if (st.meldung) { meld.textContent = st.meldung.text; meld.hidden = false; }
+  if (st.meldung) {
+    if (meld.textContent !== st.meldung.text || meld.hidden) {
+      meld.textContent = st.meldung.text;
+      meld.hidden = false;
+      meld.classList.remove('pop');
+      void meld.offsetWidth;
+      meld.classList.add('pop');
+    }
+  }
   else meld.hidden = true;
   const b = $('blase');
   if (st.blase) { b.textContent = st.blase.text; b.hidden = false; }
@@ -644,6 +675,8 @@ function starte(levelNr, endlos = false) {
     lehrText = hatTouch ? 'Wische nach links, rechts, oben oder unten.' : 'Pfeiltasten: links, rechts, hoch und runter.';
     lehrRest = 3.2;
   }
+  // Was gibt es hier zu holen?
+  if (!lehrRest && grafikBereit) { lehrText = 'Heute sammelst du ' + sammelName() + '!'; lehrRest = 2.4; }
   if (!endlos) {
     const L = LEVEL[levelNr - 1];
     melde(grossName(L.name), 2.2);
@@ -653,6 +686,10 @@ function starte(levelNr, endlos = false) {
     melde('DAUERLAUF', 1.8);
     sage(s.fig.spruch, 2.4);
   }
+}
+
+function sammelName() {
+  return szeneJetzt ? SAMMEL[szeneJetzt.sammel].name : 'Münzen';
 }
 
 function pausiere() {
@@ -676,12 +713,21 @@ function zeigeGeschafft() {
   const sterne = $('geschafftSterne');
   sterne.textContent = '';
   sterne.setAttribute('aria-label', st.sterneHier + ' von 3 Sternen');
-  for (let i = 0; i < 3; i++) sterne.append(sternBild(i < st.sterneHier));
+  for (let i = 0; i < 3; i++) { sterne.append(sternBild(i < st.sterneHier)); if (i < st.sterneHier) ton.stern(i); }
   $('geschafftTitel').textContent = istBoss() ? 'GISELA EINGEHOLT' : 'LEVEL ' + st.levelNr + ' GESCHAFFT';
+  $('gMuenzName').textContent = sammelName();
   $('gMuenzen').textContent = st.muenzenHier + ' / ' + st.k.muenzenGesamt;
   $('gTaler').textContent = '+' + zahl(st.talerHier);
   $('gBonus').textContent = '+' + zahl(st.bonus);
-  $('gPunkte').textContent = zahl(st.punkte);
+  zaehleHoch($('gPunkte'), st.punkte);
+  const lob = [];
+  if (st.punkte > st.rekordAmStart) lob.push('NEUER REKORD!');
+  if (st.perfekt) lob.push('PERFEKTER LAUF!');
+  $('gLob').textContent = lob.join(' ');
+  $('gLob').hidden = !lob.length;
+  $('gZahlen').textContent = st.knappZahl + ' x knapp · ' + st.reihenZahl + ' volle Reihen · ' + st.dampfZahl + ' x Volldampf · ' + st.krachZahl + ' zerlegt';
+  $('gSterneZeile').hidden = !st.sterneTaler;
+  $('gSterneTaler').textContent = '+' + st.sterneTaler + ' Taler';
   const dialog = $('gDialog');
   dialog.hidden = !istBoss();
   if (istBoss()) dialog.textContent = '„' + SPRUECHE.gisela[Math.floor((st.levelNr - 1) / 6)].join(' ') + '“';
@@ -700,7 +746,7 @@ function zeigeGeschafft() {
   const tipp = [];
   if (st.sterneHier < 3) {
     if (st.getroffenHier) tipp.push('Ohne Treffer gibt es einen Stern.');
-    if (st.coinsAnteil < 0.6) tipp.push('Sammle mindestens 60 % der Münzen für einen Stern.');
+    if (st.coinsAnteil < 0.6) tipp.push('Sammle mindestens 60 % der ' + sammelName() + ' für einen Stern.');
   }
   if (st.levelNr === LEVEL.length) tipp.push('Du hast das letzte Brötchen! Jetzt bleibt nur noch der Dauerlauf.');
   $('gTipp').textContent = tipp.join(' ');
@@ -708,6 +754,17 @@ function zeigeGeschafft() {
   const hatNaechstes = st.levelNr < LEVEL.length;
   $('naechstesKnopf').textContent = hatNaechstes ? 'Level ' + (st.levelNr + 1) + ': ' + LEVEL[st.levelNr].name : 'Dauerlauf starten';
   zeigeFenster('fGeschafft');
+}
+
+// Die Punkte laufen sichtbar hoch
+function zaehleHoch(feld, ziel) {
+  const start = performance.now();
+  const schritt = jetzt => {
+    const u = begrenzt((jetzt - start) / 900, 0, 1);
+    feld.textContent = zahl(ziel * (1 - (1 - u) * (1 - u)));
+    if (u < 1) requestAnimationFrame(schritt);
+  };
+  requestAnimationFrame(schritt);
 }
 
 function zeigeEnde() {
@@ -732,6 +789,11 @@ function zeigeEnde() {
   else if (freunde.length) eDuell.textContent = 'Du liegst vor allen Freunden in deiner Liste. Schick ihnen deinen Link, damit sie nachlegen.';
   else if (!neu && f.rekord > st.punkte) eDuell.textContent = 'Noch ' + zahl(f.rekord - st.punkte + 1) + ' Punkte bis zu deinem Rekord.';
   else eDuell.textContent = 'Schick deinen Rekord an Freunde. Wer schlägt dich?';
+
+  // Wie nah war das Ziel? Das macht Lust auf den nächsten Versuch.
+  const nah = $('eNah');
+  nah.hidden = st.endlos;
+  if (!st.endlos) nah.textContent = 'Du warst bei ' + Math.min(99, Math.floor(st.dist / st.ziel * 100)) + ' %. Noch ' + zahl(Math.max(1, st.ziel - st.dist)) + ' Meter bis ins Ziel!';
 
   const nochmal = $('nochmalKnopf');
   if (st.endlos) {
@@ -907,6 +969,6 @@ if ('serviceWorker' in navigator && window.isSecureContext && location.protocol 
 
 // Nur für den Testlauf: Wird im normalen Spiel nie benutzt.
 if (location.search.includes('test')) window.__spiel = {
-  misseTempo, bildBreite: () => $('bild').width,
+  misseTempo, bildBreite: () => $('bild').width, rauschPlus, zeigeGeschafft, zeigeEnde, zeigeHud,
   s: () => s, modus: () => modus, zeichen: () => ({ aufrufe: renderer.info.render.calls, dreiecke: renderer.info.render.triangles, aktive: aktive.size }), starte, schritt, TAKT, lenke, springe, rutsche, daten, zeichneBild, levelFertig, speichere, weltWechselBild, zumMenue, WELT_BAU, bau, HOEHEN, icon: g => { const c = document.createElement('canvas'); c.width = c.height = g; c.getContext('2d').drawImage(figurFoto('gisela'), 0, 0, g, g); return c; }, zeigeFenster, zeigeGeschafft, zeigeEnde, teilZ, teilX, dachHoehe, fallY, setzeModus: m => { modus = m; }
 };

@@ -21,8 +21,8 @@ const WELTEN = [
     text: 'Wasserbälle kullern quer über den Weg. Schwimmringe schleudern dich hoch in die Luft.' },
   { name: 'FISCHMARKT', farbe: '#b06ae8', schwere: 1, luft: 1,
     text: 'Nachts auf dem Markt schwingen Laternen hin und her, und Fischöl lässt dich ausrutschen.' },
-  { name: 'STURMSCHIFF', farbe: '#3fae8c', schwere: 1, luft: 1,
-    text: 'Das Deck schaukelt. Wellen rollen auf dich zu, und wo es rot leuchtet, schlägt gleich der Blitz ein.' },
+  { name: 'PIRATENSCHIFF', farbe: '#3fae8c', schwere: 1, luft: 1,
+    text: 'Das Deck schaukelt, ringsum kreuzen Piratenschiffe. Wellen rollen auf dich zu, und wo es rot leuchtet, schlägt gleich der Blitz ein.' },
   { name: 'MONDHAFEN', farbe: '#7f8cf0', schwere: 0.62, luft: 1.18,
     text: 'Fast keine Schwerkraft: Du springst weit und lange. Dafür regnet es Meteoriten.' }
 ];
@@ -33,39 +33,39 @@ const WELTEN = [
 const LEVEL = [
   // Morgenhafen
   { name: 'Erster Sprint',   laenge: 420, v0: 11.5, v1: 13, luft: 2.0, muster: ['seite', 'sprung', 'seite', 'rutsch'], lehre: true },
-  { name: 'Kistenlager',     laenge: 520, v0: 12.5, v1: 14, luft: 1.8, muster: ['seite', 'sprung', 'rutsch', 'wand2', 'container'] },
-  { name: 'Aufs Podest',   laenge: 620, v0: 13, v1: 15, luft: 1.7, muster: ['container', 'container', 'wand2', 'sprung', 'rutsch', 'dachzug'] },
-  { name: 'Steinschlag!',   laenge: 680, v0: 13.5, v1: 15.5, luft: 1.6, muster: ['kugel', 'kugel', 'wand2', 'sprungreihe', 'container', 'tor'] },
-  { name: 'Hochbetrieb',     laenge: 760, v0: 14, v1: 16, luft: 1.5, muster: ['kugel', 'tor', 'dachzug', 'rutschreihe', 'slalom', 'wand2'] },
-  { name: 'Gisela am Kai',   laenge: 700, v0: 14.5, v1: 16.5, luft: 1.6, muster: ['wurf', 'wurf', 'wand2', 'sprung', 'rutsch', 'kugel'], boss: true },
+  { name: 'Kistenlager',     laenge: 630, v0: 15, v1: 17, luft: 1.8, muster: ['seite', 'sprung', 'rutsch', 'wand2', 'container'] },
+  { name: 'Aufs Podest',   laenge: 900, v0: 19, v1: 21.5, luft: 1.7, muster: ['container', 'container', 'wand2', 'sprung', 'rutsch', 'dachzug'] },
+  { name: 'Steinschlag!',   laenge: 1150, v0: 23, v1: 26, luft: 1.6, muster: ['kugel', 'kugel', 'wand2', 'sprungreihe', 'container', 'tor'] },
+  { name: 'Hochbetrieb',     laenge: 1270, v0: 23.5, v1: 26.5, luft: 1.5, muster: ['kugel', 'tor', 'dachzug', 'rutschreihe', 'slalom', 'wand2'] },
+  { name: 'Gisela am Kai',   laenge: 1170, v0: 24.5, v1: 27.5, luft: 1.6, muster: ['wurf', 'wurf', 'wand2', 'sprung', 'rutsch', 'kugel'], boss: true },
   // Strandpromenade
-  { name: 'Sonnencreme',     laenge: 640, v0: 14.5, v1: 16.5, luft: 1.6, muster: ['ball', 'seite', 'sprung', 'ring', 'rutsch'] },
-  { name: 'Ball über alles', laenge: 720, v0: 15, v1: 17, luft: 1.5, muster: ['ball', 'ball', 'wand2', 'sprungreihe', 'container', 'ring'] },
-  { name: 'Hoch hinaus',     laenge: 780, v0: 15.5, v1: 17.5, luft: 1.45, muster: ['ring', 'ring', 'dachzug', 'ball', 'tor', 'rutschreihe'] },
-  { name: 'Kullerkugel',     laenge: 820, v0: 16, v1: 18, luft: 1.4, muster: ['kugel', 'ball', 'slalom', 'dachzug', 'ring', 'tor'] },
-  { name: 'Volle Promenade', laenge: 880, v0: 16.5, v1: 18.5, luft: 1.35, muster: ['slalom', 'kugel', 'ball', 'tor', 'rutschreihe', 'sprungreihe', 'dachzug'] },
-  { name: 'Gisela am Strand', laenge: 800, v0: 16.5, v1: 18.5, luft: 1.45, muster: ['wurf', 'wurf', 'ball', 'wand2', 'tor', 'kugel'], boss: true },
+  { name: 'Sonnencreme',     laenge: 1070, v0: 24.5, v1: 27.5, luft: 1.6, muster: ['ball', 'seite', 'sprung', 'ring', 'rutsch'] },
+  { name: 'Ball über alles', laenge: 1190, v0: 25, v1: 28, luft: 1.5, muster: ['ball', 'ball', 'wand2', 'sprungreihe', 'container', 'ring'] },
+  { name: 'Hoch hinaus',     laenge: 1280, v0: 25.5, v1: 28.5, luft: 1.45, muster: ['ring', 'ring', 'dachzug', 'ball', 'tor', 'rutschreihe'] },
+  { name: 'Kullerkugel',     laenge: 1330, v0: 26, v1: 29, luft: 1.4, muster: ['kugel', 'ball', 'slalom', 'dachzug', 'ring', 'tor'] },
+  { name: 'Volle Promenade', laenge: 1430, v0: 27, v1: 30, luft: 1.35, muster: ['slalom', 'kugel', 'ball', 'tor', 'rutschreihe', 'sprungreihe', 'dachzug'] },
+  { name: 'Gisela am Strand', laenge: 1300, v0: 27, v1: 30, luft: 1.45, muster: ['wurf', 'wurf', 'ball', 'wand2', 'tor', 'kugel'], boss: true },
   // Fischmarkt
-  { name: 'Nachtschicht',    laenge: 760, v0: 16.5, v1: 18.5, luft: 1.45, muster: ['laterne', 'pfuetze', 'seite', 'rutsch', 'sprung'] },
-  { name: 'Lampenfieber',    laenge: 820, v0: 17, v1: 19, luft: 1.4, muster: ['laterne', 'laterne', 'wand2', 'pfuetze', 'container'] },
-  { name: 'Glitschig',       laenge: 880, v0: 17.5, v1: 19.5, luft: 1.35, muster: ['pfuetze', 'pfuetze', 'tor', 'laterne', 'dachzug', 'sprungreihe'] },
-  { name: 'Rollende Steine',     laenge: 920, v0: 18, v1: 20, luft: 1.3, muster: ['kugel', 'laterne', 'slalom', 'dachzug', 'rutschreihe'] },
-  { name: 'Marktschluss',    laenge: 980, v0: 18.5, v1: 20.5, luft: 1.25, muster: ['slalom', 'kugel', 'laterne', 'tor', 'pfuetze', 'dachzug', 'sprungreihe'] },
-  { name: 'Gisela im Neon',  laenge: 900, v0: 18.5, v1: 20.5, luft: 1.35, muster: ['wurf', 'wurf', 'laterne', 'tor', 'kugel', 'wand2'], boss: true },
+  { name: 'Nachtschicht',    laenge: 1240, v0: 27, v1: 30, luft: 1.45, muster: ['laterne', 'pfuetze', 'seite', 'rutsch', 'sprung'] },
+  { name: 'Lampenfieber',    laenge: 1320, v0: 27.5, v1: 30.5, luft: 1.4, muster: ['laterne', 'laterne', 'wand2', 'pfuetze', 'container'] },
+  { name: 'Glitschig',       laenge: 1400, v0: 28, v1: 31, luft: 1.35, muster: ['pfuetze', 'pfuetze', 'tor', 'laterne', 'dachzug', 'sprungreihe'] },
+  { name: 'Rollende Steine',     laenge: 1480, v0: 29, v1: 32, luft: 1.3, muster: ['kugel', 'laterne', 'slalom', 'dachzug', 'rutschreihe'] },
+  { name: 'Marktschluss',    laenge: 1560, v0: 29.5, v1: 32.5, luft: 1.25, muster: ['slalom', 'kugel', 'laterne', 'tor', 'pfuetze', 'dachzug', 'sprungreihe'] },
+  { name: 'Gisela im Neon',  laenge: 1430, v0: 29.5, v1: 32.5, luft: 1.35, muster: ['wurf', 'wurf', 'laterne', 'tor', 'kugel', 'wand2'], boss: true },
   // Sturmschiff
-  { name: 'Windstärke 8',    laenge: 860, v0: 18.5, v1: 20.5, luft: 1.4, muster: ['welle', 'seite', 'blitz', 'rutsch', 'sprung'] },
-  { name: 'Land unter',      laenge: 920, v0: 19, v1: 21, luft: 1.35, muster: ['welle', 'welle', 'wand2', 'container', 'blitz'] },
-  { name: 'Blitzableiter',   laenge: 980, v0: 19.5, v1: 21.5, luft: 1.3, muster: ['blitz', 'blitz', 'tor', 'welle', 'dachzug', 'rutschreihe'] },
-  { name: 'Fels über Bord', laenge: 1040, v0: 20, v1: 22, luft: 1.25, muster: ['kugel', 'welle', 'slalom', 'blitz', 'dachzug'] },
-  { name: 'Klabautermann',   laenge: 1100, v0: 20.5, v1: 22.5, luft: 1.2, muster: ['slalom', 'kugel', 'welle', 'blitz', 'tor', 'sprungreihe', 'dachzug'] },
-  { name: 'Gisela im Sturm', laenge: 1000, v0: 20.5, v1: 22.5, luft: 1.3, muster: ['wurf', 'wurf', 'welle', 'tor', 'kugel', 'blitz'], boss: true },
+  { name: 'Windstärke 8',    laenge: 1370, v0: 29.5, v1: 32.5, luft: 1.4, muster: ['welle', 'seite', 'blitz', 'rutsch', 'sprung'] },
+  { name: 'Land unter',      laenge: 1450, v0: 30, v1: 33, luft: 1.35, muster: ['welle', 'welle', 'wand2', 'container', 'blitz'] },
+  { name: 'Blitzableiter',   laenge: 1550, v0: 31, v1: 34, luft: 1.3, muster: ['blitz', 'blitz', 'tor', 'welle', 'dachzug', 'rutschreihe'] },
+  { name: 'Fels über Bord', laenge: 1630, v0: 31.5, v1: 34.5, luft: 1.25, muster: ['kugel', 'welle', 'slalom', 'blitz', 'dachzug'] },
+  { name: 'Klabautermann',   laenge: 1710, v0: 32, v1: 35, luft: 1.2, muster: ['slalom', 'kugel', 'welle', 'blitz', 'tor', 'sprungreihe', 'dachzug'] },
+  { name: 'Gisela im Sturm', laenge: 1560, v0: 32, v1: 35, luft: 1.3, muster: ['wurf', 'wurf', 'welle', 'tor', 'kugel', 'blitz'], boss: true },
   // Mondhafen
-  { name: 'Kleiner Schritt', laenge: 960, v0: 20, v1: 22, luft: 1.3, muster: ['meteor', 'seite', 'sprung', 'rutsch', 'ring'] },
-  { name: 'Meteoritenregen', laenge: 1020, v0: 20.5, v1: 22.5, luft: 1.25, muster: ['meteor', 'meteor', 'wand2', 'container', 'ring'] },
-  { name: 'Laserschranke',   laenge: 1080, v0: 21, v1: 23, luft: 1.2, muster: ['rutschreihe', 'sprungreihe', 'meteor', 'tor', 'dachzug'] },
-  { name: 'Mondkugeln',      laenge: 1140, v0: 21.5, v1: 24, luft: 1.18, muster: ['kugel', 'meteor', 'slalom', 'dachzug', 'ring', 'tor'] },
-  { name: 'Letzte Rakete',   laenge: 1220, v0: 22, v1: 25, luft: 1.15, muster: ['slalom', 'kugel', 'meteor', 'tor', 'rutschreihe', 'sprungreihe', 'dachzug'] },
-  { name: 'Das letzte Brötchen', laenge: 1300, v0: 22, v1: 25, luft: 1.2, muster: ['wurf', 'wurf', 'meteor', 'tor', 'kugel', 'slalom'], boss: true }
+  { name: 'Kleiner Schritt', laenge: 1510, v0: 31.5, v1: 34.5, luft: 1.3, muster: ['meteor', 'seite', 'sprung', 'rutsch', 'ring'] },
+  { name: 'Meteoritenregen', laenge: 1590, v0: 32, v1: 35, luft: 1.25, muster: ['meteor', 'meteor', 'wand2', 'container', 'ring'] },
+  { name: 'Laserschranke',   laenge: 1670, v0: 32.5, v1: 35.5, luft: 1.2, muster: ['rutschreihe', 'sprungreihe', 'meteor', 'tor', 'dachzug'] },
+  { name: 'Mondkugeln',      laenge: 1770, v0: 33.5, v1: 37, luft: 1.18, muster: ['kugel', 'meteor', 'slalom', 'dachzug', 'ring', 'tor'] },
+  { name: 'Letzte Rakete',   laenge: 1870, v0: 34, v1: 38, luft: 1.15, muster: ['slalom', 'kugel', 'meteor', 'tor', 'rutschreihe', 'sprungreihe', 'dachzug'] },
+  { name: 'Das letzte Brötchen', laenge: 1990, v0: 34, v1: 38, luft: 1.2, muster: ['wurf', 'wurf', 'meteor', 'tor', 'kugel', 'slalom'], boss: true }
 ];
 
 // Die Figuren. level = ab diesem geschafften Level frei (0 = von Anfang an), sterne = Alternative für die Geheimfigur.
@@ -126,7 +126,9 @@ const AUFTRAEGE = [
   { art: 'meter', ziel: 12000, text: 'Lauf 12.000 Meter', taler: 400 },
   { art: 'muenzen', ziel: 2000, text: 'Sammle 2.000 Münzen', taler: 500 },
   { art: 'hilfe', ziel: 30, text: 'Sammle 30 Hilfen ein', taler: 500 },
-  { art: 'knapp', ziel: 100, text: 'Weiche 100 Mal ganz knapp aus', taler: 500 }
+  { art: 'knapp', ziel: 100, text: 'Weiche 100 Mal ganz knapp aus', taler: 500 },
+  { art: 'dampf', ziel: 5, text: 'Fülle 5 Mal die Volldampf-Leiste', taler: 250 },
+  { art: 'krach', ziel: 40, text: 'Zerlege 40 Hindernisse mit Volldampf', taler: 400 }
 ];
 
 const SPRUECHE = {

@@ -8,9 +8,11 @@ let muenzenMesh, funkenPunkte, wetterPunkte;
 let spieler = null;     // Die Figur im Bild
 let spielerName = '';
 let weltJetzt = -1;
+let szeneJetzt = null, lichtJetzt = null, dekoReihen = [];
 let weltFormen = null;
 let bildGroesse = { b: 1, h: 1, hoch: false };
 let bildQualitaet = 1;
+let kameraSicht = 60;
 let wackeln = 0;
 let blitzHell = 0;
 let bildZeit = 0;
@@ -41,6 +43,7 @@ function grafikStart() {
   szene.fog = new THREE.Fog(0xffffff, 60, 190);
   kamera = new THREE.PerspectiveCamera(60, 1, 0.3, 700);
   szene.add(kamera);
+  baueLinien();
 
   const stufen = new THREE.DataTexture(new Uint8Array([120, 195, 255]), 3, 1, THREE.RedFormat);
   stufen.minFilter = stufen.magFilter = THREE.NearestFilter;
@@ -138,8 +141,7 @@ function alleFrei() {
 
 // --------------------------- Welt anziehen ---------------------------
 
-function faerbeHimmel(w) {
-  const h = WELT_BAU[w].himmel;
+function faerbeHimmel(h) {
   const form = himmelKugel.geometry;
   const pos = form.attributes.position, col = form.attributes.color;
   const oben = new THREE.Color(h.oben), mitte = new THREE.Color(h.mitte), unten = new THREE.Color(h.unten);
@@ -153,22 +155,37 @@ function faerbeHimmel(w) {
   col.needsUpdate = true;
 }
 
+// Welche Szene gehört zum laufenden Level? Im Dauerlauf wechseln sie mit jeder Runde.
+function szeneFuer(w) {
+  const st = s;
+  let nr = w * 6;
+  if (st && st.endlos) nr = w * 6 + ((st.weltStufe - 1) * 2 + 1) % 6;
+  else if (st && st.levelNr) nr = st.levelNr - 1;
+  if (Math.floor(nr / 6) !== w) nr = w * 6;
+  return SZENEN[nr];
+}
+
 function zieheWeltAn(w) {
   if (!grafikBereit) return;
   weltJetzt = w;
   const W = WELT_BAU[w];
-  const h = W.himmel;
+  szeneJetzt = szeneFuer(w);
+  const sz = szeneJetzt;
+  const h = Object.assign({}, W.himmel, sz.himmel);
+  lichtJetzt = Object.assign({}, W.licht, sz.licht);
+  dekoReihen = W.deko.concat(sz.kulisse || []);
+  muenzenMesh.geometry = formVon('sammel_' + sz.sammel, SAMMEL[sz.sammel].form);
   szene.fog.color.set(h.nebel);
   szene.fog.near = h.nebelVon;
   szene.fog.far = h.nebelBis;
-  licht.color.set(W.licht.hoch);
-  licht.groundColor.set(W.licht.tief);
-  licht.intensity = W.licht.stark;
-  sonne.color.set(W.licht.sonne);
-  sonne.intensity = W.licht.sonneStark;
-  faerbeHimmel(w);
+  licht.color.set(lichtJetzt.hoch);
+  licht.groundColor.set(lichtJetzt.tief);
+  licht.intensity = lichtJetzt.stark;
+  sonne.color.set(lichtJetzt.sonne);
+  sonne.intensity = lichtJetzt.sonneStark;
+  faerbeHimmel(h);
   if (himmelBild) himmelGruppe.remove(himmelBild);
-  himmelBild = new THREE.Mesh(formVon('himmel' + w, () => bau(W.himmelsBild)), MAT_HIMMEL());
+  himmelBild = new THREE.Mesh(formVon(sz.bild ? 'himmel_' + sz.name : 'himmel' + w, () => bau(sz.bild || W.himmelsBild)), MAT_HIMMEL());
   himmelBild.frustumCulled = false;
   himmelBild.renderOrder = -9;
   himmelGruppe.add(himmelBild);
@@ -196,8 +213,11 @@ function pflegeBoden() {
   }
   for (let nr = startNr; nr <= startNr + 8; nr++) {
     if (bodenListe.some(m => m.userData.nr === nr)) continue;
-    const w = weltJetzt;
-    const m = holeMesh('boden' + w, () => bau(WELT_BAU[w].boden));
+    const w = weltJetzt, wa = szeneJetzt.wasser;
+    const m = holeMesh(wa ? 'boden_' + szeneJetzt.name : 'boden' + w, () => bau(b => {
+      WELT_BAU[w].boden(b);
+      if (wa) wasserFaerben(b, w, wa.farbe, wa.glanz);
+    }));
     m.userData.nr = nr;
     bodenListe.push(m);
   }
@@ -211,17 +231,29 @@ let dekoZufall = wuerfel(12345);
 function pflegeDeko() {
   const dist = s.dist;
   const w = weltJetzt;
-  const reihen = WELT_BAU[w].deko;
+  const reihen = dekoReihen;
   reihen.forEach((reihe, i) => {
-    const schl = w + ':' + i;
+    const schl = w + ':' + szeneJetzt.name + ':' + i;
     if (dekoNaechste[schl] === undefined) dekoNaechste[schl] = dist - 20 + dekoZufall() * 10;
     while (dekoNaechste[schl] < dist + 190) {
-      const f = Math.floor(dekoZufall() * reihe.formen.length);
-      const m = holeMesh('deko' + w + '_' + i + '_' + f, () => bau(reihe.formen[f]));
+      let m;
+      if (reihe.form) {
+        // Kulisse der Szene: Schiffe, Inseln, Fische
+        const namen = Array.isArray(reihe.form) ? reihe.form : [reihe.form];
+        const name = namen[Math.floor(dekoZufall() * namen.length)];
+        m = holeMesh('kul_' + name, () => bau(KULISSE[name]));
+      } else {
+        const f = Math.floor(dekoZufall() * reihe.formen.length);
+        m = holeMesh('deko' + w + '_' + i + '_' + f, () => bau(reihe.formen[f]));
+      }
       m.position.x = reihe.seite * reihe.x;
-      m.position.y = 0;
+      m.position.y = reihe.y || 0;
+      m.userData.y = reihe.y || 0;
+      m.userData.wippt = !!reihe.wippt;
+      m.userData.fisch = reihe.fisch ? (reihe.hoch || 5) : 0;
       // Die Häuser schauen immer zur Strecke, also wird die rechte Seite einfach gedreht
-      if (reihe.seite < 0) m.rotation.y = Math.PI;
+      if (reihe.dreh !== undefined) m.rotation.y = reihe.dreh;
+      else if (reihe.seite < 0) m.rotation.y = Math.PI;
       m.userData.d = dekoNaechste[schl];
       dekoListe.push(m);
       dekoNaechste[schl] += reihe.schritt[0] + dekoZufall() * (reihe.schritt[1] - reihe.schritt[0]);
@@ -231,6 +263,20 @@ function pflegeDeko() {
     const m = dekoListe[i];
     if (m.userData.d < dist - 14) { gibFrei(m); dekoListe.splice(i, 1); continue; }
     m.position.z = -(m.userData.d - dist);
+    if (wenigBewegung.matches) { if (m.userData.fisch) m.visible = false; continue; }
+    if (m.userData.wippt) {
+      m.position.y = m.userData.y + Math.sin(bildZeit * 1.1 + m.userData.d) * 0.4;
+      m.rotation.z = Math.sin(bildZeit * 0.8 + m.userData.d) * 0.035;
+    }
+    if (m.userData.fisch) {
+      // Springt in hohem Bogen aus dem Wasser und taucht wieder ab
+      const u = (bildZeit * 0.55 + m.userData.d * 0.37) % 2;
+      m.visible = u < 1;
+      if (u < 1) {
+        m.position.y = m.userData.y - 1 + Math.sin(u * Math.PI) * m.userData.fisch;
+        m.rotation.z = (u - 0.5) * 1.5;
+      }
+    }
   }
 }
 
@@ -595,7 +641,7 @@ function baueSchatten() {
 
 // --------------------------- Funken und Wetter ---------------------------
 
-const FUNKEN_MAX = 120;
+const FUNKEN_MAX = 260;
 let funkenNr = 0;
 const funkenDaten = [];
 
@@ -660,6 +706,47 @@ function pflegeFunken(dt) {
   if (aktiv) pos.needsUpdate = true;
 }
 
+// Tempo-Streifen: fliegen am Bildrand vorbei, je schneller, desto deutlicher
+const LINIEN_ABSTAND = 26;
+let linien = null, linienWeg = 0;
+
+function baueLinien() {
+  const punkte = [];
+  for (let i = 0; i < 34; i++) {
+    const w = Math.random() * Math.PI * 2;
+    const r = 3.2 + Math.random() * 6;
+    const x = Math.cos(w) * r, y = Math.sin(w) * r;
+    const lang = 2.5 + Math.random() * 5;
+    const z0 = -Math.random() * LINIEN_ABSTAND;
+    const qx = -Math.sin(w) * 0.022, qy = Math.cos(w) * 0.022;
+    // Jeder Streifen zweimal im festen Abstand, damit das Weiterschieben nahtlos ist
+    for (const z of [z0, z0 - LINIEN_ABSTAND]) {
+      punkte.push(x - qx, y - qy, z, x + qx, y + qy, z, x + qx, y + qy, z - lang);
+      punkte.push(x - qx, y - qy, z, x + qx, y + qy, z - lang, x - qx, y - qy, z - lang);
+    }
+  }
+  const form = new THREE.BufferGeometry();
+  form.setAttribute('position', new THREE.Float32BufferAttribute(punkte, 3));
+  const m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthTest: false, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false });
+  linien = new THREE.Mesh(form, m);
+  linien.frustumCulled = false;
+  linien.renderOrder = 50;
+  kamera.add(linien);
+}
+
+function pflegeLinien(dt) {
+  const st = s;
+  const an = modus === 'lauf' && !st.fertig && !st.tot && st.flug <= 0 && !wenigBewegung.matches;
+  const ziel = !an ? 0 : st.dampf > 0 ? 0.6 : begrenzt((st.tempo - 16) / 22, 0, 1) * 0.3;
+  const m = linien.material;
+  m.opacity += (ziel - m.opacity) * Math.min(1, dt * 5);
+  linien.visible = m.opacity > 0.01;
+  if (!linien.visible) return;
+  m.color.setHex(st.dampf > 0 ? 0xffc040 : 0xffffff);
+  linienWeg = (linienWeg + st.tempo * dt * 1.25) % LINIEN_ABSTAND;
+  linien.position.z = linienWeg;
+}
+
 // Regen, Sterne, Sand: Punkte, die mitlaufen
 const WETTER_N = 150;
 let wetterArt = '';
@@ -678,7 +765,7 @@ function baueWetter() {
 function zeigeWetter(w) {
   const m = wetterPunkte.material;
   wetterArt = ['moewen', 'sand', 'funken', 'regen', 'staub'][w];
-  wetterPunkte.visible = w !== 0;
+  wetterPunkte.visible = w !== 0 && !szeneJetzt.wetterAus;
   m.color.set([0xffffff, 0xfff4c8, 0xffc8f0, 0xbfe6f0, 0xc8d0ff][w]);
   m.size = [0.1, 0.14, 0.2, 0.15, 0.13][w];
   m.opacity = [0, 0.5, 0.8, 0.75, 0.7][w];
@@ -786,12 +873,26 @@ function zeichneBild(dt) {
   pflegeFunken(dt);
   pflegeWetter(dt);
   pflegeGisela(dt);
+  pflegeLinien(dt);
+
+  // Volldampf: Die Figur wächst und zieht eine Funkenspur hinter sich her
+  const dampfGroesse = 1 + (st.dampf > 0 ? 0.22 : 0);
+  const groesseJetzt = spieler.wurzel.scale.x + (dampfGroesse - spieler.wurzel.scale.x) * Math.min(1, dt * 8);
+  spieler.wurzel.scale.setScalar(groesseJetzt);
+  if (st.dampf > 0 && modus === 'lauf') {
+    funkenBei(st.x + (Math.random() - 0.5) * 0.8, st.y + 0.2 + Math.random() * 1.2, 0.5, Math.random() < 0.5 ? 0xffb020 : 0xff6a20, 2, 2);
+  }
+  // Am Ziel regnet es Konfetti
+  if (st.fertig > 0 && st.fertig < 2 && Math.random() < dt * 30) {
+    const bunt = [0xffd24a, 0xff5a7a, 0x5ae0ff, 0x8aff7a, 0xc98aff];
+    funkenBei(st.x + (Math.random() - 0.5) * 5, st.y + 2.5 + Math.random() * 2, -1 - Math.random() * 2, bunt[Math.floor(Math.random() * bunt.length)], 3, 5);
+  }
 
   // Die Figur
   const f = spieler;
   const salto = st.zeit - st.saltoZeit;
   const y = st.y;
-  laufPhase += dt * (st.tempo > 0 ? Math.max(9, st.tempo * 0.95) : 0) * (modus === 'menue' ? 0.8 : 1);
+  laufPhase += dt * (st.tempo > 0 ? begrenzt(st.tempo * 0.95, 9, 27) : 0) * (modus === 'menue' ? 0.8 : 1);
   f.wurzel.position.set(st.x, y, 0);
   f.wurzel.rotation.y = modus === 'menue' ? 0 : begrenzt((SPUR_X[st.spur] - st.x) * -0.08, -0.45, 0.45);
   const lehnen = begrenzt((SPUR_X[st.spur] - st.x) * -0.16, -0.32, 0.32);
@@ -827,8 +928,8 @@ function zeichneBild(dt) {
   blitzHell = Math.max(0, blitzHell - dt * 3.5);
   if (weltJetzt === 3 && !wenigBewegung.matches && Math.random() < dt * 0.09) blitzHell = 0.7;
   if (blitzHell > 0) {
-    licht.intensity = WELT_BAU[weltJetzt].licht.stark + blitzHell * 2.6;
-  } else licht.intensity = WELT_BAU[weltJetzt].licht.stark;
+    licht.intensity = lichtJetzt.stark + blitzHell * 2.6;
+  } else licht.intensity = lichtJetzt.stark;
 
   renderer.render(szene, kamera);
   misseTempo(dt);
@@ -836,6 +937,11 @@ function zeichneBild(dt) {
 
 function stelleKamera(dt) {
   const st = s;
+  // Je schneller, desto weiter das Bild. Das lässt das Tempo spüren.
+  const laeuft = modus === 'lauf' && !st.fertig && !st.tot && !wenigBewegung.matches;
+  const zielSicht = kameraSicht + (laeuft ? begrenzt((st.tempo - 14) * 0.25, 0, 6) + (st.dampf > 0 ? 5 : 0) : 0);
+  const sichtNeu = kamera.fov + (Math.min(zielSicht, 106) - kamera.fov) * Math.min(1, dt * 3.5);
+  if (Math.abs(sichtNeu - kamera.fov) > 0.01) { kamera.fov = sichtNeu; kamera.updateProjectionMatrix(); }
   // Wenn wir die Figur von vorne sehen, kommt auch das Licht von vorne
   if (modus === 'menue' || st.fertig > 0) sonne.position.set(-2, 8, -7);
   else sonne.position.set(5, 11, 6);
@@ -995,7 +1101,8 @@ function passeGroesseAn() {
   // Auch auf schmalen Handys müssen alle drei Spuren ins Bild passen
   const halbBreit = Math.tan((hoch ? 45 : 58) * Math.PI / 360);
   const senkrecht = a >= 1 ? 52 : 2 * Math.atan(halbBreit / a) * 180 / Math.PI;
-  kamera.fov = begrenzt(senkrecht, 46, 98);
+  kameraSicht = begrenzt(senkrecht, 46, 98);
+  kamera.fov = kameraSicht;
   kamera.updateProjectionMatrix();
 }
 

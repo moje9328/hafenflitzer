@@ -601,7 +601,7 @@ const WELT_BAU = [
         for (const [dx, dy, r] of [[0, 0, 18], [20, 3, 14], [-22, 2, 13], [40, -3, 9], [-40, -3, 9]]) b.rund(r * s, x + dx * s, y + dy * s, z, 0xfff1e6, { seg: 10, seg2: 6, s: [1.3, 0.62, 1] });
       }
       // Hügel und Stadt ganz hinten
-      for (let i = -9; i < 10; i++) b.box(18 + (i * 7 % 13 + 13) % 13, 14 + (i * 13 % 21 + 21) % 21, 4, i * 26, 8, -318, [0xd89a8e, 0xe8b09a]);
+      for (let i = -9; i < 10; i++) { const h = 14 + (i * 13 % 21 + 21) % 21; b.box(18 + (i * 7 % 13 + 13) % 13, h + 90, 4, i * 26, 8 + h / 2 - (h + 90) / 2, -318, [0xd89a8e, 0xe8b09a]); }
     },
     boden: b => {
       // Links das Hafenbecken, rechts das Lagergelände, dazwischen ein breiter Kai aus Kopfsteinpflaster
@@ -852,7 +852,7 @@ const WELT_BAU = [
         const w = i * 2.399, r = 80 + (i * 37) % 240;
         b.box(0.9, 0.9, 0.9, Math.cos(w) * r, 60 + (i * 53) % 150, -300, 0xfff8e0);
       }
-      for (let i = -9; i < 10; i++) b.box(20, 20 + (i * 13 % 25 + 25) % 25, 4, i * 28, 10, -318, [0x1a0f3a, 0x2c1a55]);
+      for (let i = -9; i < 10; i++) { const h = 20 + (i * 13 % 25 + 25) % 25; b.box(20, h + 90, 4, i * 28, 10 + h / 2 - (h + 90) / 2, -318, [0x1a0f3a, 0x2c1a55]); }
     },
     boden: b => {
       b.platte(-90, 90, -0.02, 15, -15, 0x352b5c);
@@ -1236,4 +1236,505 @@ function formFuerRegel(art) {
   if (art === 'M') return GEMEINSAM.kugel(0);
   if (art === 'C') { const stil = WELT_BAU[0].container[0]; const g = baueContainer(14, 7, stil.farbe, stil.dunkel, stil); g.translate(0, 0, 7); return g; }
   return null;
+}
+
+// --------------------------- Sammelobjekte ---------------------------
+// Jedes Level sammelt etwas anderes. Alle glänzen und drehen sich, damit man sofort sieht: Das ist gut.
+
+const GOLD = 0xffc21a, GOLD_HELL = 0xffe45a, GOLD_DUNKEL = 0xc98a0a;
+
+const SAMMEL = {
+  anker: { name: 'Ankermünzen', form: MUENZE_FORM },
+  dublone: { name: 'Piraten-Dublonen', form: () => bau(b => {
+    b.zyl(0.44, 0.44, 0.1, 0, 0, 0, GOLD, { seg: 9, rx: Math.PI / 2 });
+    for (const z of [-0.06, 0.06]) {
+      b.rund(0.17, 0, 0.05, z, 0xfff6d8, { seg: 8, seg2: 5, s: [1, 1, 0.2] });
+      b.box(0.14, 0.09, 0.03, 0, -0.1, z, 0xfff6d8);
+      for (const sx of [-1, 1]) b.rund(0.05, sx * 0.07, 0.06, z * 1.4, 0x3a2408, { seg: 6, seg2: 4, s: [1, 1, 0.3] });
+      for (const r of [0.7, -0.7]) b.box(0.56, 0.05, 0.02, 0, -0.23, z, 0xfff6d8, { rz: r * 0.3 });
+    }
+  }) },
+  truhe: { name: 'Schatztruhen', form: () => bau(b => {
+    b.box(0.72, 0.38, 0.46, 0, -0.14, 0, [0xc8301e, 0xf0523a]);
+    b.zyl(0.23, 0.23, 0.72, 0, 0.14, 0.02, 0xe8402a, { seg: 8, rz: Math.PI / 2, s: [1, 1, 1] });
+    for (const x of [-0.27, 0.27]) b.box(0.08, 0.66, 0.5, x, 0, 0, GOLD);
+    b.box(0.74, 0.07, 0.48, 0, 0.03, 0, GOLD);
+    for (const z of [-0.25, 0.25]) b.box(0.15, 0.17, 0.03, 0, -0.04, z, GOLD_HELL);
+  }) },
+  steuerrad: { name: 'Steuerräder', form: () => bau(b => {
+    b.ring(0.36, 0.09, 0, 0, 0, 0xffb21a, { seg: 6, seg2: 16 });
+    b.zyl(0.1, 0.1, 0.12, 0, 0, 0, GOLD, { seg: 10, rx: Math.PI / 2 });
+    for (let i = 0; i < 4; i++) b.box(0.09, 0.72, 0.09, 0, 0, 0, GOLD_HELL, { rz: i * Math.PI / 4 });
+    for (let i = 0; i < 8; i++) { const w = i * Math.PI / 4; b.box(0.1, 0.18, 0.1, Math.cos(w) * 0.48, Math.sin(w) * 0.48, 0, GOLD_HELL, { rz: w + Math.PI / 2 }); }
+  }) },
+  kompass: { name: 'Kompasse', form: () => bau(b => {
+    b.zyl(0.42, 0.42, 0.12, 0, 0, 0, GOLD, { seg: 16, rx: Math.PI / 2 });
+    b.zyl(0.33, 0.33, 0.14, 0, 0, 0, 0xfff6e4, { seg: 16, rx: Math.PI / 2 });
+    for (const z of [-0.08, 0.08]) {
+      b.kegel(0.08, 0.26, 0, 0.13, z, 0xe8301e, { seg: 4, s: [1, 1, 0.2] });
+      b.kegel(0.08, 0.26, 0, -0.13, z, 0x2a4a7a, { seg: 4, rz: Math.PI, s: [1, 1, 0.2] });
+    }
+    b.rund(0.08, 0, 0.47, 0, GOLD_HELL, { seg: 8, seg2: 5 });
+  }) },
+  rubin: { name: 'Piraten-Rubine', form: () => bau(b => {
+    b.setze(new THREE.ConeGeometry(0.36, 0.42, 7), 0xff2a50, 0, -0.17, 0, { rx: Math.PI });
+    b.setze(new THREE.CylinderGeometry(0.2, 0.36, 0.2, 7), 0xff7a92, 0, 0.14, 0);
+  }) },
+  fisch: { name: 'Goldfische', form: () => bau(b => {
+    b.rund(0.3, 0, 0, 0, [0xff9a1a, 0xffd84a], { seg: 10, seg2: 7, s: [1.4, 0.95, 0.5] });
+    b.kegel(0.28, 0.36, 0.52, 0, 0, 0xff7a1a, { seg: 3, rz: Math.PI / 2, s: [1, 1, 0.3] });
+    b.kegel(0.13, 0.26, -0.02, 0.32, 0, 0xff7a1a, { seg: 3, s: [1, 1, 0.3] });
+    for (const z of [-0.14, 0.14]) { b.rund(0.08, -0.26, 0.07, z, 0xffffff, { seg: 8, seg2: 5 }); b.rund(0.045, -0.28, 0.07, z * 1.3, 0x17151c, { seg: 6, seg2: 4 }); }
+  }) },
+  silberfisch: { name: 'Silberfische', form: () => bau(b => {
+    b.rund(0.28, 0, 0, 0, [0x7fb0d8, 0xe8f6ff], { seg: 10, seg2: 7, s: [1.6, 0.75, 0.45] });
+    b.kegel(0.26, 0.34, 0.56, 0, 0, 0x5fa0d8, { seg: 3, rz: Math.PI / 2, s: [1, 1, 0.3] });
+    b.kegel(0.11, 0.22, 0, 0.25, 0, 0x5fa0d8, { seg: 3, s: [1, 1, 0.3] });
+    for (const z of [-0.12, 0.12]) { b.rund(0.07, -0.3, 0.05, z, 0xffffff, { seg: 8, seg2: 5 }); b.rund(0.04, -0.32, 0.05, z * 1.3, 0x17151c, { seg: 6, seg2: 4 }); }
+  }) },
+  muschel: { name: 'Muscheln', form: () => bau(b => {
+    for (let i = -3; i <= 3; i++) {
+      const w = i * 0.36;
+      b.box(0.15, 0.62, 0.11, Math.sin(w) * 0.26, -0.1 + Math.cos(w) * 0.26, 0, i % 2 ? 0xffa8c0 : 0xff6a9a, { rz: -w });
+    }
+    b.rund(0.1, 0, -0.34, 0, 0xfff0e0, { seg: 8, seg2: 5, s: [1.6, 0.7, 0.8] });
+  }) },
+  seestern: { name: 'Seesterne', form: () => bau(b => {
+    for (let i = 0; i < 5; i++) {
+      const w = i * Math.PI * 2 / 5;
+      b.kegel(0.17, 0.46, -Math.sin(w) * 0.27, Math.cos(w) * 0.27, 0, [0xff5a2a, 0xffa04a], { seg: 6, rz: w, s: [1, 1, 0.55] });
+    }
+    b.rund(0.2, 0, 0, 0, 0xff7a3a, { seg: 10, seg2: 6, s: [1, 1, 0.5] });
+    for (const sx of [-1, 1]) for (const z of [-0.1, 0.1]) { b.rund(0.05, sx * 0.07, 0.04, z, 0xffffff, { seg: 6, seg2: 4 }); }
+  }) },
+  perle: { name: 'Perlen', form: () => bau(b => {
+    b.rund(0.3, 0, 0.06, 0, [0xf0d8ff, 0xffffff], { seg: 14, seg2: 10 });
+    b.rund(0.42, 0, -0.26, 0, 0xff8ac0, { seg: 12, seg2: 6, s: [1.1, 0.34, 0.75] });
+    b.ring(0.33, 0.035, 0, 0.06, 0, GOLD_HELL, { seg: 5, seg2: 16 });
+  }) },
+  flasche: { name: 'Flaschenposten', form: () => bau(b => {
+    b.zyl(0.2, 0.22, 0.56, 0, -0.08, 0, [0x18a860, 0x5ae098], { seg: 10 });
+    b.zyl(0.08, 0.18, 0.2, 0, 0.3, 0, 0x5ae098, { seg: 10 });
+    b.zyl(0.09, 0.09, 0.12, 0, 0.45, 0, 0xc8904a, { seg: 8 });
+    b.box(0.2, 0.32, 0.46, 0, -0.08, 0, 0xfff6d8);
+  }) },
+  laterne: { name: 'Glühlaternen', form: () => bau(b => {
+    b.box(0.36, 0.42, 0.36, 0, 0, 0, GOLD_HELL);
+    b.rund(0.17, 0, 0, 0, 0xffffff, { seg: 8, seg2: 6, s: [1.2, 1.4, 1.2] });
+    b.kegel(0.34, 0.2, 0, 0.31, 0, 0xe0301e, { seg: 4, ry: Math.PI / 4 });
+    b.box(0.46, 0.07, 0.46, 0, -0.24, 0, 0xe0301e);
+    b.ring(0.08, 0.025, 0, 0.47, 0, GOLD, { seg: 5, seg2: 10 });
+  }) },
+  mondstein: { name: 'Mondsteine', form: () => bau(b => {
+    b.setze(new THREE.ConeGeometry(0.32, 0.46, 6), 0x7af0ff, 0, 0.23, 0);
+    b.setze(new THREE.ConeGeometry(0.32, 0.46, 6), 0x3a90f0, 0, -0.23, 0, { rx: Math.PI });
+  }) },
+  stern: { name: 'Sternschnuppen', form: () => bau(b => {
+    for (let i = 0; i < 5; i++) {
+      const w = i * Math.PI * 2 / 5;
+      b.kegel(0.17, 0.32, -Math.sin(w) * 0.27, Math.cos(w) * 0.27, 0, GOLD_HELL, { seg: 4, rz: w, s: [1, 1, 0.5] });
+    }
+    b.rund(0.21, 0, 0, 0, 0xfff4a8, { seg: 10, seg2: 6, s: [1, 1, 0.5] });
+  }) },
+  broetchen: { name: 'Fischbrötchen', form: () => bau(b => {
+    b.rund(0.3, 0, -0.1, 0, 0xd89040, { seg: 10, seg2: 6, s: [1.5, 0.45, 0.85] });
+    b.rund(0.3, 0, 0.17, 0, [0xe8a850, 0xc8782a], { seg: 10, seg2: 6, s: [1.5, 0.5, 0.85] });
+    b.rund(0.27, 0, 0.03, 0, 0xf0f4f8, { seg: 8, seg2: 5, s: [1.8, 0.3, 0.7] });
+    b.box(0.72, 0.05, 0.44, 0, -0.03, 0, 0x5ac84a);
+  }) }
+};
+
+// --------------------------- Kulisse: Schiffe, Inseln, Fische ---------------------------
+
+// Bug zeigt nach -z, die Wasserlinie liegt bei y = 0
+function schiffsRumpf(b, lang, breit, hoch, f1, f2, leiste) {
+  b.box(breit, hoch, lang, 0, hoch / 2, 0, [f1, f2]);
+  b.kegel(breit * 0.72, lang * 0.3, 0, hoch / 2, -lang / 2 - lang * 0.13, [f1, f2], { seg: 4, rx: -Math.PI / 2, s: [1, 1, hoch / (breit * 1.3)] });
+  b.box(breit + 0.1, 0.3, lang, 0, hoch - 0.15, 0, leiste);
+  b.box(breit + 0.1, 0.22, lang, 0, hoch * 0.45, 0, leiste);
+}
+function mast(b, z, hoch, unten, farbe = 0x5a3a1e) {
+  b.zyl(0.2, 0.32, hoch, 0, unten + hoch / 2, z, farbe, { seg: 7 });
+}
+function segel(b, z, y, breit, hoch, farbe, farbe2 = farbe) {
+  const bahnen = 4;
+  for (let i = 0; i < bahnen; i++) {
+    const u = (i + 0.5) / bahnen;
+    const bauch = Math.sin(u * Math.PI);
+    b.box(breit * (0.86 + 0.14 * u), hoch / bahnen + 0.02, 0.3, 0, y + hoch / 2 - u * hoch, z + bauch * 1.1, i % 2 ? farbe2 : farbe);
+  }
+  b.box(breit + 1.4, 0.2, 0.2, 0, y + hoch / 2, z, 0x4a2e16);
+  b.box(breit + 0.6, 0.14, 0.14, 0, y - hoch / 2, z, 0x4a2e16);
+}
+function schaedel(b, x, y, z, g, seite = 1) {
+  const f = 0xf6f0e0;
+  b.rund(g, x, y + g * 0.15, z, f, { seg: 10, seg2: 7, s: [1, 1, 0.3] });
+  b.box(g * 1.1, g * 0.55, g * 0.3, x, y - g * 0.7, z, f);
+  for (const sx of [-1, 1]) b.rund(g * 0.27, x + sx * g * 0.42, y + g * 0.15, z + seite * g * 0.26, 0x17151c, { seg: 7, seg2: 5, s: [1, 1, 0.3] });
+  for (const r of [0.65, -0.65]) b.box(g * 3.2, g * 0.3, g * 0.2, x, y - g * 1.5, z, f, { rz: r });
+}
+
+const KULISSE = {
+  piratenschiff: b => {
+    schiffsRumpf(b, 30, 8, 5, 0x24140c, 0x5a3218, 0xc8922a);
+    b.box(8.2, 4, 8, 0, 7, 11, [0x4a2a14, 0x6e4220]);
+    b.box(8.5, 0.35, 8.3, 0, 9.1, 11, 0xc8922a);
+    b.box(8.2, 2, 5, 0, 6, -11, [0x4a2a14, 0x6e4220]);
+    for (const sx of [-1, 1]) for (let i = -2; i <= 2; i++) {
+      b.box(0.1, 1, 1.1, sx * 4.05, 3.1, i * 4.2, 0x0e0806);
+      b.zyl(0.28, 0.32, 1.5, sx * 4.6, 3.1, i * 4.2, 0x20202a, { seg: 6, rz: Math.PI / 2 });
+    }
+    for (let i = 0; i < 4; i++) b.box(1.2, 0.8, 0.1, -2.8 + i * 1.9, 7.2, 15.05, 0xffd86a);
+    mast(b, -6, 24, 5); mast(b, 3, 28, 5); mast(b, 10, 20, 9);
+    const dunkel = 0x2c2230, rot = 0x9a2228;
+    segel(b, -6, 13, 15, 8, dunkel, rot); segel(b, -6, 22, 11, 6, rot, dunkel);
+    segel(b, 3, 15, 18, 10, dunkel, rot); segel(b, 3, 26, 13, 7, rot, dunkel);
+    segel(b, 10, 20, 11, 7, dunkel, rot);
+    schaedel(b, 0, 15.3, 4.7, 2.2);
+    b.box(5, 3.2, 0.1, 2.6, 33, 3, 0x17151c);
+    schaedel(b, 2.6, 33.2, 3.1, 0.7);
+    b.zyl(0.1, 0.1, 14, 0, 4, -19, 0x5a3a1e, { seg: 5, rx: 1.1 });
+  },
+  galeone: b => {
+    schiffsRumpf(b, 30, 8.5, 5.4, 0x6a2418, 0xa83a22, 0xffd24a);
+    b.box(8.6, 5, 9, 0, 7.6, 10.5, [0x8e2c1c, 0xc8482a]);
+    b.box(9, 0.4, 9.3, 0, 10.2, 10.5, 0xffd24a);
+    for (let i = 0; i < 4; i++) b.box(1.2, 1.1, 0.1, -3 + i * 2, 7.8, 15.05, 0xfff0a8);
+    mast(b, -7, 22, 5); mast(b, 2, 28, 5); mast(b, 10, 20, 10);
+    segel(b, -7, 13, 14, 8, 0xfff6e4, 0xe8402e); segel(b, -7, 22, 10, 5, 0xfff6e4, 0xe8402e);
+    segel(b, 2, 15, 18, 10, 0xe8402e, 0xfff6e4); segel(b, 2, 26, 13, 7, 0xfff6e4, 0xe8402e);
+    segel(b, 10, 20, 11, 7, 0xfff6e4, 0xe8402e);
+    b.kegel(1.2, 3, 0, 34, 2, 0xffd24a, { seg: 3, ry: 0.4, s: [1, 1, 0.1] });
+  },
+  segler: b => {
+    schiffsRumpf(b, 16, 4.4, 2.4, 0xf4f0e6, 0xfdfcf6, 0x2f6ea8);
+    b.box(3, 1.3, 4, 0, 3, 3, 0xe0d8c4);
+    mast(b, -1, 17, 2);
+    b.kegel(5, 13, 2.2, 10.5, -1, 0xfff8ee, { seg: 3, s: [0.65, 1, 0.08] });
+    b.kegel(3.4, 11, -2, 9, -2.6, 0xff7a4a, { seg: 3, s: [0.6, 1, 0.08] });
+  },
+  segelboot: b => {
+    schiffsRumpf(b, 9, 3, 1.5, 0x2a9ab8, 0x3fc0d8, 0xffffff);
+    mast(b, 0, 10, 1);
+    b.kegel(3.2, 8.5, 1.4, 6.4, 0, 0xffc84a, { seg: 3, s: [0.65, 1, 0.08] });
+    b.kegel(2, 6, -1.2, 5.3, -0.6, 0xf0589a, { seg: 3, s: [0.65, 1, 0.08] });
+  },
+  dampfer: b => {
+    schiffsRumpf(b, 38, 9, 6, 0x1c2a44, 0x2c4066, 0xe8402e);
+    b.box(8, 3, 22, 0, 7.5, 3, 0xf4f0e6);
+    b.box(6.6, 2.6, 12, 0, 10.3, 2, 0xfdfcf6);
+    for (const z of [-5, 0, 5, 10]) b.box(8.1, 0.9, 2.4, 0, 7.8, z, 0x5a90c0);
+    for (const z of [-2, 6]) { b.zyl(1.3, 1.5, 6, 0, 14.5, z, 0xe8402e, { seg: 10 }); b.zyl(1.34, 1.34, 1, 0, 16.6, z, 0x17151c, { seg: 10 }); }
+    mast(b, -14, 12, 6, 0x9a9a9a);
+  },
+  kutter: b => {
+    schiffsRumpf(b, 13, 4.6, 2.2, 0x0f5a4a, 0x1a8a72, 0xf4f0e6);
+    b.box(3, 2.6, 3.4, 0, 3.4, 2.6, 0xf4f0e6);
+    b.box(3.1, 0.8, 2, 0, 4, 2.2, 0x5a90c0);
+    mast(b, -2, 8, 2);
+    b.box(0.12, 0.12, 5.4, 0, 7.6, -3.6, 0x5a3a1e, { rx: 0.4 });
+    for (let i = 0; i < 4; i++) b.box(0.04, 3.2 - i * 0.5, 0.04, 0, 5.8 + i * 0.1, -4.2 - i * 0.7, 0xe8dcb8);
+  },
+  wrack: b => {
+    b.box(7, 3, 22, 0, 1.2, 0, [0x24180e, 0x4a3018], { rz: 0.35, rx: 0.14 });
+    b.kegel(5, 7, 1, 1.5, -14, 0x3a2614, { seg: 4, rx: -Math.PI / 2, rz: 0.35, s: [1, 1, 0.5] });
+    b.zyl(0.2, 0.3, 14, -1.6, 8, 3, 0x3a2614, { seg: 6, rz: 0.4 });
+    b.box(8, 0.2, 0.2, -3.6, 11.5, 3, 0x3a2614, { rz: 0.1 });
+    b.box(6, 4, 0.1, -2.6, 8.8, 3, 0x2a2228, { rz: 0.28 });
+    schaedel(b, -2.6, 9, 3.15, 0.9);
+  },
+  palmeninsel: b => {
+    b.rund(11, 0, -0.6, 0, [0xd8b870, 0xf6e2a8], { seg: 14, seg2: 8, s: [1, 0.26, 0.8] });
+    b.rund(7, -2, 1, -1, 0x52b856, { seg: 10, seg2: 6, s: [1, 0.2, 0.7] });
+    for (const [x, z, h, rz] of [[-3, -2, 11, 0.16], [2, 1, 13, -0.14], [-6, 2.4, 9, 0.2]]) {
+      b.zyl(0.22, 0.44, h, x, h / 2 + 1, z, [0x7a5228, 0xa87a48], { seg: 7, rz });
+      const dx = -Math.sin(rz) * h / 2, ty = h + 1;
+      for (let i = 0; i < 7; i++) {
+        const w = i / 7 * Math.PI * 2;
+        b.rund(1, x + dx + Math.cos(w) * 2.2, ty - 0.4, z + Math.sin(w) * 2.2, [0x1f9040, 0x4ad060], { seg: 6, seg2: 4, s: [2.8, 0.22, 0.8], ry: -w, rz: -0.4 });
+      }
+    }
+    b.box(3, 2.4, 3, 5.4, 2.5, 1, 0xc89a5a);
+    b.kegel(3, 2.2, 5.4, 4.8, 1, 0xd8b050, { seg: 4, ry: Math.PI / 4 });
+  },
+  schatzinsel: b => {
+    b.rund(11, 0, -0.6, 0, [0xd8b870, 0xf6e2a8], { seg: 14, seg2: 8, s: [1, 0.26, 0.8] });
+    b.zyl(0.24, 0.46, 12, -3, 7, 0, [0x7a5228, 0xa87a48], { seg: 7, rz: 0.15 });
+    for (let i = 0; i < 7; i++) { const w = i / 7 * Math.PI * 2; b.rund(1, -4 + Math.cos(w) * 2.2, 12.6, Math.sin(w) * 2.2, [0x1f9040, 0x4ad060], { seg: 6, seg2: 4, s: [2.8, 0.22, 0.8], ry: -w, rz: -0.4 }); }
+    // Die Schatztruhe und das rote X
+    b.box(3, 1.5, 2, 4, 2.6, 2, [0x6e3e14, 0xa8622a]);
+    b.zyl(1, 1, 3, 4, 3.5, 2, 0x8a5020, { seg: 8, rz: Math.PI / 2 });
+    b.box(3.1, 0.3, 2.1, 4, 3.2, 2, GOLD);
+    for (const r of [0.8, -0.8]) b.box(5, 0.1, 0.6, 0, 2, 6, 0xe8301e, { ry: r });
+    b.box(2.8, 0.1, 1.6, -4, 2.1, -5, GOLD_HELL);
+  },
+  felsinsel: b => {
+    b.rund(9, 0, -0.5, 0, 0x8a8478, { seg: 9, seg2: 6, s: [1, 0.3, 0.8] });
+    b.kegel(5, 13, -2, 6, 0, [0x6a645c, 0x9a948a], { seg: 6 });
+    b.kegel(3.4, 8, 3, 4, 1, [0x6a645c, 0xa8a298], { seg: 6 });
+    b.zyl(0.8, 1.1, 8, -2, 11, 0, 0xf4f0e6, { seg: 10 });
+    b.zyl(1.15, 1.15, 1.2, -2, 12.4, 0, 0xe0402e, { seg: 10 });
+    b.rund(0.8, -2, 15.6, 0, 0xfff4a8, { seg: 8, seg2: 6 });
+    b.kegel(1.1, 1.2, -2, 17, 0, 0xe0402e, { seg: 10 });
+  },
+  sprungfisch: b => {
+    b.rund(0.95, 0, 0, 0, [0xff7a1a, 0xffd84a], { seg: 10, seg2: 7, s: [1.8, 0.9, 0.5] });
+    b.kegel(0.95, 1.2, 2.1, 0, 0, 0xff6a1a, { seg: 3, rz: Math.PI / 2, s: [1, 1, 0.25] });
+    b.kegel(0.45, 0.9, 0, 1, 0, 0xff6a1a, { seg: 3, s: [1, 1, 0.25] });
+    for (const z of [-0.42, 0.42]) { b.rund(0.25, -1.05, 0.2, z, 0xffffff, { seg: 8, seg2: 5 }); b.rund(0.13, -1.12, 0.2, z * 1.3, 0x17151c, { seg: 6, seg2: 4 }); }
+  },
+  delfin: b => {
+    b.rund(1.1, 0, 0, 0, [0xd8e8f0, 0x5a8aa8], { seg: 10, seg2: 7, s: [2.4, 0.85, 0.75] });
+    b.kegel(0.34, 1.5, -3, -0.1, 0, 0xc0d4e0, { seg: 6, rz: Math.PI / 2 });
+    b.kegel(1, 1.2, 2.9, 0, 0, 0x4a7a98, { seg: 3, rz: Math.PI / 2, s: [1, 1, 0.2] });
+    b.kegel(0.7, 1.4, 0, 1.2, 0, 0x4a7a98, { seg: 3, rx: 0, rz: 0.3, s: [1, 1, 0.2] });
+    for (const z of [-0.65, 0.65]) b.rund(0.14, -1.9, 0.2, z, 0x17151c, { seg: 6, seg2: 4 });
+  },
+  piratenfahne: b => {
+    b.zyl(0.1, 0.14, 11, 0, 5.5, 0, 0x4a2e16, { seg: 7 });
+    b.rund(0.2, 0, 11.1, 0, GOLD, { seg: 7, seg2: 5 });
+    b.box(4, 2.6, 0.08, 2.1, 9.5, 0, 0x17151c);
+    schaedel(b, 2.1, 9.7, 0.06, 0.45);
+    schaedel(b, 2.1, 9.7, -0.06, 0.45, -1);
+  },
+  kanone: b => {
+    b.box(1.6, 0.6, 1.5, 0.8, 0.4, 0, 0x6e4220);
+    for (const z of [-0.75, 0.75]) b.zyl(0.42, 0.42, 0.16, 0.5, 0.42, z, 0x3a2412, { seg: 10, rx: Math.PI / 2 });
+    b.zyl(0.3, 0.42, 2.6, 0.9, 1.05, 0, 0x26262e, { seg: 10, rz: -Math.PI / 2 + 0.16 });
+    for (let i = 0; i < 3; i++) b.rund(0.26, -0.6 + i * 0.5, 0.26, 1.4, 0x17171c, { seg: 7, seg2: 5 });
+  },
+  schatzhaufen: b => {
+    b.box(1.8, 0.9, 1.2, 0.9, 0.45, 0, [0x6e3e14, 0xa8622a]);
+    b.rund(1, 0.9, 0.95, 0, GOLD, { seg: 10, seg2: 6, s: [0.9, 0.5, 0.6] });
+    b.zyl(0.6, 0.6, 1.8, 0.9, 1.25, 0.6, 0x8a5020, { seg: 8, rz: Math.PI / 2, s: [1, 1, 0.3] });
+    for (const x of [0.2, 1.6]) b.box(0.1, 0.92, 1.24, x, 0.45, 0, GOLD_HELL);
+    b.rund(0.2, 1.1, 1.55, 0, 0xff2a50, { seg: 5, seg2: 3 });
+    b.zyl(0.5, 0.56, 1.2, 3, 0.6, -1.4, [0x7a5228, 0xa87a42], { seg: 10 });
+    b.ring(0.54, 0.05, 3, 0.9, -1.4, 0x2a2a2e, { rx: Math.PI / 2, seg: 5, seg2: 12 });
+    b.ring(0.54, 0.05, 3, 0.3, -1.4, 0x2a2a2e, { rx: Math.PI / 2, seg: 5, seg2: 12 });
+  },
+  raumpirat: b => {
+    schiffsRumpf(b, 24, 6.4, 4, 0x2a1a4a, 0x5a3a9a, 0x4ae0ff);
+    b.box(6.5, 3, 6, 0, 5.4, 8, 0x4a2e8a);
+    mast(b, -3, 20, 4, 0x8a88a8); mast(b, 6, 16, 6, 0x8a88a8);
+    segel(b, -3, 13, 13, 9, 0x6a4ae0, 0x2a2070); segel(b, 6, 15, 9, 7, 0x2a2070, 0x6a4ae0);
+    schaedel(b, 0, 13.3, -1.7, 1.9);
+    for (const z of [-7, 7]) for (const sx of [-1, 1]) b.box(4, 0.3, 4, sx * 5, 2, z, 0x8a88a8);
+    for (const sx of [-1, 1]) b.zyl(1.1, 0.8, 3, sx * 2, 1.8, 13, 0x4ae0ff, { seg: 8, rx: Math.PI / 2 });
+  },
+  raketenfels: b => {
+    b.rund(4, 0, 0, 0, 0x7a7890, { seg: 7, seg2: 5, s: [1.3, 0.8, 1] });
+    for (const [x, y, z] of [[-2, 2, 2], [2, 1.4, 2.6]]) b.rund(0.7, x, y, z, 0x4a4860, { seg: 6, seg2: 4 });
+  }
+};
+
+// --------------------------- Himmel: Bausteine ---------------------------
+
+function himmelWolken(b, farbe, liste) {
+  for (const [x, y, s, breit = 1.3] of liste) {
+    for (const [dx, dy, r] of [[0, 0, 18], [20, 3, 14], [-22, 2, 13], [40, -3, 9], [-40, -3, 9]]) {
+      b.rund(r * s, x + dx * s, y + dy * s, -305, farbe, { seg: 9, seg2: 5, s: [breit, 0.55, 1] });
+    }
+  }
+}
+function himmelSterne(b, n, farbe = 0xfff8e0, hoehe = 40) {
+  for (let i = 0; i < n; i++) {
+    const w = i * 2.399, r = 30 + (i * 37) % 320;
+    const g = i % 6 === 0 ? 1.4 : 0.8;
+    b.box(g, g, g, Math.cos(w) * r, hoehe + (i * 53) % 210, -300, farbe);
+  }
+}
+// Sonne mit Glut-Ringen und Streifen wie auf einem Urlaubsplakat
+function himmelSonne(b, x, y, r, kern, glut) {
+  b.rund(r * 1.42, x, y, -318, glut, { seg: 20, seg2: 10, s: [1, 1, 0.2] });
+  b.rund(r * 1.16, x, y, -314, kern, { seg: 20, seg2: 10, s: [1, 1, 0.2] });
+  b.rund(r, x, y, -310, [kern, 0xfff4b0], { seg: 22, seg2: 12, s: [1, 1, 0.2] });
+}
+function himmelHorizont(b, art, f1, f2) {
+  if (art === 'stadt') for (let i = -9; i < 10; i++) { const h = 14 + (i * 13 % 21 + 21) % 21; b.box(18 + (i * 7 % 13 + 13) % 13, h + 90, 4, i * 26, 8 + h / 2 - (h + 90) / 2, -300, [f1, f2]); }
+  if (art === 'berge') for (let i = -8; i < 9; i++) b.kegel(36, 22 + (i * 7 % 12 + 12) % 12, i * 38, 8, -300, [f1, f2], { seg: 6 });
+  if (art === 'inseln') for (const [x, r, h] of [[-190, 44, 26], [-90, 30, 18], [70, 26, 14], [170, 48, 32]]) {
+    b.kegel(r, h, x, 8, -300, [f1, f2], { seg: 7 });
+    b.zyl(0.9, 1.2, 16, x + 6, 16 + h * 0.3, -298, f1, { seg: 5 });
+    for (let i = 0; i < 6; i++) { const w = i / 6 * Math.PI * 2; b.rund(4, x + 6 + Math.cos(w) * 6, 24 + h * 0.3, -298, f1, { seg: 5, seg2: 3, s: [2, 0.3, 0.3], rz: Math.sin(w) * 0.5 }); }
+  }
+  if (art === 'masten') {
+    for (let i = -8; i < 9; i++) { const h = 12 + (i * 11 % 15 + 15) % 15; b.box(22, h + 90, 4, i * 30, 8 + h / 2 - (h + 90) / 2, -300, [f1, f2]); }
+    for (const x of [-170, -110, -30, 60, 140, 200]) {
+      b.box(1.2, 120, 1, x, 8, -298, f1);
+      b.box(24, 1, 1, x, 50, -298, f1);
+      b.box(18, 1, 1, x, 62, -298, f1);
+      b.kegel(10, 5, x + 4, 72, -298, f1, { seg: 3, rz: -1.5, s: [1, 1, 0.1] });
+    }
+  }
+  if (art === 'mond') for (let i = -8; i < 9; i++) b.kegel(40, 20 + (i * 9 % 14 + 14) % 14, i * 42, 0, -300, [f1, f2], { seg: 6 });
+}
+function himmelPlanet(b, x, y, r, f1, f2, ring) {
+  b.rund(r, x, y, -300, [f1, f2], { seg: 20, seg2: 12 });
+  if (ring) b.ring(r * 1.55, r * 0.09, x, y, -296, ring, { rx: 1.25, ry: 0.3, seg: 5, seg2: 28, s: [1, 1, 0.4] });
+}
+
+// --------------------------- Die Szene jedes Levels ---------------------------
+// sammel = was man einsammelt, himmel und licht = Tageszeit, bild = Sonne, Wolken und Horizont,
+// wasser = neue Farbe fürs Wasser, kulisse = was am Rand vorbeizieht.
+
+const R = (form, seite, x, y, von, bis, extra = {}) => ({ form, seite, x, y, schritt: [von, bis], ...extra });
+const WASSER_Y = [-0.5, -0.5, 0, -2.4, 0];
+
+// Reihen für die Welten mit Wasser
+const SEGELSCHIFFE = R(['segler', 'segelboot', 'kutter'], -1, 34, -0.5, 40, 80, { dreh: 0.6, wippt: true });
+const SPRUNGFISCHE = (x, y = -0.5) => R('sprungfisch', -1, x, y, 20, 36, { fisch: true });
+const DELFINE = (x, y = -0.5) => R('delfin', -1, x, y, 26, 50, { fisch: true, hoch: 7 });
+const INSELN = (x = 64) => R(['palmeninsel', 'schatzinsel', 'palmeninsel', 'felsinsel'], -1, x, -0.5, 42, 80);
+const PIRATEN = (seite = -1, x = 48, y = -0.5, von = 80, bis = 130) => R('piratenschiff', seite, x, y, von, bis, { dreh: seite < 0 ? 0.55 : -0.55, wippt: true });
+const GALEONEN = (seite = -1, x = 50, y = -0.5, von = 90, bis = 150) => R('galeone', seite, x, y, von, bis, { dreh: seite < 0 ? 0.5 : -0.5, wippt: true });
+const DAMPFER = R('dampfer', -1, 50, -0.5, 100, 170, { dreh: 0.5, wippt: true });
+const FAHNEN = R('piratenfahne', 1, 5.6, 0, 26, 46);
+const FAHNEN_L = R('piratenfahne', -1, 5.6, 0, 26, 46);
+const DECK_R = R(['kanone', 'schatzhaufen', 'kanone', 'piratenfahne'], 1, 5.6, 0, 34, 56);
+const DECK_L = R(['kanone', 'kanone', 'schatzhaufen', 'piratenfahne'], -1, 5.6, 0, 34, 56);
+const WRACKS = (seite = -1) => R('wrack', seite, 30, -2.4, 70, 130, { dreh: 0.5 });
+const RAUMPIRATEN = (seite = -1, x = 34) => R('raumpirat', seite, x, 15, 70, 120, { dreh: seite < 0 ? 0.5 : -0.5, wippt: true });
+
+const SZENEN = [
+  // ------------------ 1. MORGENHAFEN: ein Hafen voller Schiffe ------------------
+  { name: 'Morgenrot', sammel: 'anker', kulisse: [SEGELSCHIFFE, SPRUNGFISCHE(16)] },
+  { name: 'Fischkutter', sammel: 'silberfisch', kulisse: [R('kutter', -1, 30, -0.5, 28, 50, { dreh: 0.6, wippt: true }), SPRUNGFISCHE(17)] },
+  { name: 'Regatta', sammel: 'steuerrad', wasser: { farbe: 0x2fa8d0, glanz: 0xc8f4ff },
+    himmel: { oben: 0x3f9fe8, mitte: 0xa8dcf4, unten: 0xe8f4ee, nebel: 0xdcecec },
+    licht: { hoch: 0xffffff, tief: 0xa89a8a, stark: 1.55, sonne: 0xfff8e4, sonneStark: 1.8 },
+    bild: b => { himmelSonne(b, 110, 170, 16, 0xfff4b0, 0xfff8d8); himmelWolken(b, 0xffffff, [[-170, 100, 1.3], [40, 140, 1], [190, 80, 1.2]]); himmelHorizont(b, 'stadt', 0x8aa0b4, 0xaabccc); },
+    kulisse: [R(['segler', 'segelboot'], -1, 26, -0.5, 16, 34, { dreh: 0.5, wippt: true }), R('segler', -1, 52, -0.5, 30, 60, { dreh: 0.8, wippt: true })] },
+  { name: 'Großer Pott', sammel: 'kompass', wasser: { farbe: 0x2a96c0, glanz: 0xb8ecf8 },
+    himmel: { oben: 0x5aa0e0, mitte: 0xffe4b0, unten: 0xffd090, nebel: 0xf8dcb0 },
+    licht: { hoch: 0xfff4dc, tief: 0xa88a7a, stark: 1.5, sonne: 0xffe8c0, sonneStark: 1.7 },
+    bild: b => { himmelSonne(b, -130, 70, 22, 0xffe080, 0xffe8b0); himmelWolken(b, 0xfff4e0, [[-40, 120, 1.1], [150, 90, 1.4]]); himmelHorizont(b, 'stadt', 0xb89a80, 0xd8b898); },
+    kulisse: [DAMPFER, SPRUNGFISCHE(16)] },
+  { name: 'Abendrot', sammel: 'flasche', wasser: { farbe: 0xd86a6a, glanz: 0xffc080 },
+    himmel: { oben: 0x3a3a8a, mitte: 0xf0705a, unten: 0xffc060, nebel: 0xf8a070 },
+    licht: { hoch: 0xffd8b0, tief: 0x7a4a6a, stark: 1.45, sonne: 0xffb070, sonneStark: 1.55 },
+    bild: b => { himmelSonne(b, -80, 34, 36, 0xff9a3a, 0xff7a4a); himmelWolken(b, 0x7a3a70, [[-180, 95, 1.2], [60, 125, 1.1], [190, 75, 1.3]]); himmelHorizont(b, 'stadt', 0x4a2a4a, 0x7a3a5a); },
+    kulisse: [SEGELSCHIFFE, GALEONEN(-1, 52)] },
+  { name: 'Piraten im Hafen', sammel: 'dublone', wasser: { farbe: 0xb84a6a, glanz: 0xff9a6a },
+    himmel: { oben: 0x2a1a6a, mitte: 0xd84a60, unten: 0xffa04a, nebel: 0xe07860 },
+    licht: { hoch: 0xffc8a8, tief: 0x5a3a6a, stark: 1.4, sonne: 0xff9a60, sonneStark: 1.5 },
+    bild: b => { himmelSonne(b, 90, 30, 40, 0xff7a2a, 0xff5a4a); himmelSterne(b, 22, 0xffe8d0, 140); himmelWolken(b, 0x4a2460, [[-150, 100, 1.4], [170, 120, 1]]); himmelHorizont(b, 'masten', 0x2a1838, 0x4a2448); },
+    kulisse: [PIRATEN(-1, 44, -0.5, 60, 100)] },
+
+  // ------------------ 2. STRANDPROMENADE: Inseln, Fische, Sonnenuntergang ------------------
+  { name: 'Palmenstrand', sammel: 'muschel', kulisse: [INSELN(), SPRUNGFISCHE(30)] },
+  { name: 'Seesternbucht', sammel: 'seestern', wasser: { farbe: 0x20c8d8, glanz: 0xc8fff4 },
+    himmel: { oben: 0x10a0e8, mitte: 0x70e0f0, unten: 0xd8fff0, nebel: 0xc8f4ec },
+    bild: b => { himmelSonne(b, -60, 180, 18, 0xfff8c0, 0xfffbe0); himmelWolken(b, 0xffffff, [[-180, 95, 1.2], [110, 130, 0.9]]); himmelHorizont(b, 'inseln', 0x2a9a7a, 0x5ac89a); },
+    kulisse: [INSELN(58), DELFINE(30)] },
+  { name: 'Delfinriff', sammel: 'fisch', wasser: { farbe: 0x18b0e0, glanz: 0xa8f4ff },
+    himmel: { oben: 0x2a90e8, mitte: 0x8ad8f8, unten: 0xf0fff4, nebel: 0xd8f4f4 },
+    bild: b => { himmelSonne(b, 130, 150, 18, 0xfff8c0, 0xfffbe0); himmelWolken(b, 0xffffff, [[-120, 110, 1.1], [30, 90, 0.8]]); himmelHorizont(b, 'inseln', 0x2a8a7a, 0x4ab890); },
+    kulisse: [SPRUNGFISCHE(26), DELFINE(38), R('segelboot', -1, 56, -0.5, 30, 60, { dreh: 0.6, wippt: true })] },
+  { name: 'Goldene Stunde', sammel: 'perle', wasser: { farbe: 0x3aa0b0, glanz: 0xfff0a0 },
+    himmel: { oben: 0x5a90d0, mitte: 0xffd890, unten: 0xffb868, nebel: 0xffd8a0 },
+    licht: { hoch: 0xfff0d0, tief: 0xb08a68, stark: 1.5, sonne: 0xffd8a0, sonneStark: 1.7 },
+    bild: b => { himmelSonne(b, -70, 62, 30, 0xffc850, 0xffd890); himmelWolken(b, 0xffe8c8, [[-180, 110, 1.2], [120, 130, 1]]); himmelHorizont(b, 'inseln', 0x5a6a50, 0x8a8a5a); },
+    kulisse: [INSELN(60), SEGELSCHIFFE, SPRUNGFISCHE(28)] },
+  { name: 'Sonnenuntergang', sammel: 'seestern', wasser: { farbe: 0xe8646e, glanz: 0xffd080 },
+    himmel: { oben: 0x4a2a86, mitte: 0xff5f6a, unten: 0xffb24a, nebel: 0xff9a6a },
+    licht: { hoch: 0xffd0b8, tief: 0x8a4a6a, stark: 1.45, sonne: 0xffa868, sonneStark: 1.55 },
+    bild: b => { himmelSonne(b, -50, 34, 50, 0xff8a2a, 0xff5a50); himmelWolken(b, 0x7a2a70, [[-190, 80, 1.3], [90, 115, 1.1], [200, 70, 1.2]]); himmelHorizont(b, 'inseln', 0x2a1438, 0x4a1e48); },
+    kulisse: [INSELN(56), SPRUNGFISCHE(26), R('segler', -1, 44, -0.5, 60, 100, { dreh: 0.6, wippt: true })] },
+  { name: 'Piratenbucht', sammel: 'truhe', wasser: { farbe: 0x8a3a8a, glanz: 0xff8a7a },
+    himmel: { oben: 0x1e1450, mitte: 0x7a2a8a, unten: 0xff6a70, nebel: 0x9a4a80 },
+    licht: { hoch: 0xe8c0d8, tief: 0x4a2a6a, stark: 1.4, sonne: 0xff8a90, sonneStark: 1.4 },
+    bild: b => { himmelSonne(b, 80, 16, 46, 0xff5a4a, 0xc83a6a); himmelSterne(b, 46, 0xfff0e8, 90); himmelWolken(b, 0x3a1a58, [[-160, 90, 1.3], [190, 100, 1]]); himmelHorizont(b, 'inseln', 0x160c2a, 0x2c1440); },
+    kulisse: [PIRATEN(-1, 46, -0.5, 60, 100), R('schatzinsel', -1, 70, -0.5, 60, 100)] },
+
+  // ------------------ 3. FISCHMARKT: Nacht zwischen Hafenmasten ------------------
+  { name: 'Nachtmarkt', sammel: 'silberfisch' },
+  { name: 'Lampenfest', sammel: 'laterne',
+    himmel: { oben: 0x081838, mitte: 0x1a3a70, unten: 0x3a6a90, nebel: 0x223f66 },
+    licht: { hoch: 0x9ac0f0, tief: 0x2a3a60, stark: 1.5, sonne: 0xc8e0ff, sonneStark: 1.3 },
+    bild: b => { b.rund(30, -70, 130, -310, 0xf0f4ff, { seg: 20, seg2: 12 }); himmelSterne(b, 70); himmelHorizont(b, 'masten', 0x0c1830, 0x1a2c50); } },
+  { name: 'Fang des Tages', sammel: 'fisch', kulisse: [FAHNEN] },
+  { name: 'Schmugglerabend', sammel: 'flasche',
+    himmel: { oben: 0x26104a, mitte: 0xa03a5a, unten: 0xff8a50, nebel: 0x6a2a5a },
+    licht: { hoch: 0xe0b0c0, tief: 0x3a2050, stark: 1.45, sonne: 0xffa080, sonneStark: 1.35 },
+    bild: b => { himmelSonne(b, 60, 20, 34, 0xff6a3a, 0xc8405a); himmelSterne(b, 36, 0xffe8e0, 110); himmelHorizont(b, 'masten', 0x1a0c2c, 0x3a1a44); },
+    kulisse: [FAHNEN, FAHNEN_L] },
+  { name: 'Piratenmarkt', sammel: 'dublone', kulisse: [FAHNEN, FAHNEN_L],
+    himmel: { oben: 0x100a2c, mitte: 0x2a1650, unten: 0xa8405a, nebel: 0x3c2050 },
+    bild: b => { b.rund(22, 110, 140, -310, 0xffe8c0, { seg: 18, seg2: 12 }); himmelSterne(b, 60); himmelHorizont(b, 'masten', 0x140a28, 0x2c1644); } },
+  { name: 'Neonhafen', sammel: 'perle',
+    himmel: { oben: 0x100828, mitte: 0x5a0f80, unten: 0xff2fa0, nebel: 0x601a70 },
+    licht: { hoch: 0xd8a0f0, tief: 0x3a1a60, stark: 1.55, sonne: 0xff90e0, sonneStark: 1.4 },
+    bild: b => { b.rund(24, -90, 110, -310, 0x4afff0, { seg: 18, seg2: 12, s: [1, 1, 0.3] }); himmelSterne(b, 50, 0xffc8f8); himmelHorizont(b, 'masten', 0x1a0a3c, 0x7a1a80); },
+    kulisse: [FAHNEN] },
+
+  // ------------------ 4. PIRATENSCHIFF: Kanonen, Schätze, feindliche Segel ------------------
+  { name: 'Kurs auf den Schatz', sammel: 'dublone', kulisse: [PIRATEN(1, 44, -2.4), GALEONEN(-1, 46, -2.4), DECK_R, DECK_L] },
+  { name: 'Enterhaken', sammel: 'steuerrad', kulisse: [PIRATEN(-1, 40, -2.4, 55, 90), PIRATEN(1, 44, -2.4, 70, 110), DECK_R, DECK_L],
+    wasser: { farbe: 0x2a7a8a, glanz: 0xb8f0e8 },
+    himmel: { oben: 0x2a6a9a, mitte: 0x70b0c0, unten: 0xc8d8c0, nebel: 0x8ab0b0 },
+    licht: { hoch: 0xe0f0e8, tief: 0x3a5a5a, stark: 1.4, sonne: 0xf0f8e8, sonneStark: 1.4 },
+    bild: b => { himmelWolken(b, 0x4a6a78, [[-160, 90, 1.5], [60, 120, 1.4], [190, 70, 1.5]]); himmelHorizont(b, 'berge', 0x3a5a5a, 0x6a8a80); } },
+  { name: 'Gewitternacht', sammel: 'kompass', kulisse: [WRACKS(1), WRACKS(-1), DECK_R, DECK_L],
+    wasser: { farbe: 0x0e2a3a, glanz: 0x5a90a8 },
+    himmel: { oben: 0x050a14, mitte: 0x101c2c, unten: 0x2a4050, nebel: 0x18283a },
+    licht: { hoch: 0x9ab8d8, tief: 0x1a2838, stark: 1.3, sonne: 0xc0d8f0, sonneStark: 1.15 },
+    bild: b => { himmelWolken(b, 0x0c1420, [[-170, 90, 1.8], [20, 120, 1.7], [180, 75, 1.8], [-50, 60, 1.5]]); himmelSterne(b, 18, 0xc0d8f0, 170); himmelHorizont(b, 'berge', 0x101c28, 0x243848); } },
+  { name: 'Roter Himmel', sammel: 'rubin', kulisse: [PIRATEN(-1, 44, -2.4, 60, 100), GALEONEN(1, 46, -2.4), DECK_R, DECK_L],
+    wasser: { farbe: 0x5a2030, glanz: 0xff7a4a },
+    himmel: { oben: 0x2a0e1e, mitte: 0x8a2a2a, unten: 0xf07a3a, nebel: 0x6a3030 },
+    licht: { hoch: 0xf0b8a0, tief: 0x3a1a2a, stark: 1.35, sonne: 0xff9a70, sonneStark: 1.35 },
+    bild: b => { himmelSonne(b, -70, 28, 34, 0xff5a2a, 0xc0302a); himmelWolken(b, 0x2a1020, [[-180, 95, 1.6], [80, 125, 1.5], [200, 70, 1.5]]); himmelHorizont(b, 'berge', 0x1e0c18, 0x4a1c24); } },
+  { name: 'Geisterschiff', sammel: 'laterne', kulisse: [WRACKS(1), R('piratenschiff', -1, 42, -2.4, 60, 100, { dreh: 0.55, wippt: true }), DECK_R, DECK_L],
+    wasser: { farbe: 0x0e4a40, glanz: 0x6affc8 },
+    himmel: { oben: 0x06201c, mitte: 0x0f5a48, unten: 0x4ad0a0, nebel: 0x1a5a4a },
+    licht: { hoch: 0xa8f0d0, tief: 0x143a34, stark: 1.4, sonne: 0xb8ffe0, sonneStark: 1.2 },
+    bild: b => { b.rund(32, 80, 120, -310, 0xd8ffe8, { seg: 20, seg2: 12 }); himmelSterne(b, 40, 0xc8ffe0, 80); himmelWolken(b, 0x0a2c28, [[-150, 80, 1.5], [170, 100, 1.2]]); himmelHorizont(b, 'berge', 0x0a2c28, 0x1a5a4c); } },
+  { name: 'Letztes Gefecht', sammel: 'truhe', kulisse: [PIRATEN(-1, 40, -2.4, 50, 80), PIRATEN(1, 40, -2.4, 50, 80), DECK_R, DECK_L],
+    wasser: { farbe: 0x8a3a5a, glanz: 0xffb060 },
+    himmel: { oben: 0x2a2a6a, mitte: 0xe0605a, unten: 0xffc060, nebel: 0xd0806a },
+    licht: { hoch: 0xffd0b0, tief: 0x4a3058, stark: 1.45, sonne: 0xffb078, sonneStark: 1.5 },
+    bild: b => { himmelSonne(b, 40, 30, 46, 0xff9a3a, 0xff6a50); himmelWolken(b, 0x4a2a60, [[-170, 100, 1.5], [170, 110, 1.3]]); himmelHorizont(b, 'berge', 0x2a1838, 0x5a2a4a); } },
+
+  // ------------------ 5. MONDHAFEN: Weltraum-Piraten ------------------
+  { name: 'Kleiner Schritt', sammel: 'mondstein', kulisse: [RAUMPIRATEN(-1, 40)] },
+  { name: 'Sternschnuppen', sammel: 'stern',
+    himmel: { oben: 0x10042a, mitte: 0x3a0f6a, unten: 0x8a2aa0, nebel: 0x3a1a60 },
+    licht: { hoch: 0xd0b0ff, tief: 0x2a1a58, stark: 1.4, sonne: 0xe8d0ff, sonneStark: 1.6 },
+    bild: b => { himmelPlanet(b, 110, 130, 34, 0xc05aa0, 0xffa0c0, 0xf0d8ff); himmelSterne(b, 130, 0xffffff, 20); himmelHorizont(b, 'mond', 0x281a4a, 0x4a3a70); },
+    kulisse: [RAUMPIRATEN(1, 38)] },
+  { name: 'Polarlicht', sammel: 'mondstein',
+    himmel: { oben: 0x021018, mitte: 0x0a3a3a, unten: 0x2ad0a0, nebel: 0x0e3a3a },
+    licht: { hoch: 0xb0f0e0, tief: 0x143438, stark: 1.4, sonne: 0xd0fff0, sonneStark: 1.6 },
+    bild: b => { himmelSterne(b, 100, 0xe0fff0, 60); for (let i = -7; i < 8; i++) b.box(30, 70 + (i * 11 % 40 + 40) % 40, 1, i * 44, 90, -295, [0x1fd0a0, 0x0a4a50]); himmelHorizont(b, 'mond', 0x10302c, 0x2a5a50); },
+    kulisse: [RAUMPIRATEN(-1, 36)] },
+  { name: 'Weltraumschatz', sammel: 'truhe',
+    himmel: { oben: 0x140a04, mitte: 0x4a2a10, unten: 0xc8803a, nebel: 0x4a3018 },
+    licht: { hoch: 0xffe0b0, tief: 0x3a2a18, stark: 1.4, sonne: 0xffe8c0, sonneStark: 1.7 },
+    bild: b => { himmelPlanet(b, -100, 110, 44, 0xc8602a, 0xf0a84a, 0xffe0a0); himmelSterne(b, 90, 0xfff0d0, 40); himmelHorizont(b, 'mond', 0x3a2410, 0x6a4420); },
+    kulisse: [RAUMPIRATEN(-1, 38), RAUMPIRATEN(1, 44)] },
+  { name: 'Letzte Rakete', sammel: 'stern',
+    himmel: { oben: 0x020418, mitte: 0x0a1a5a, unten: 0x2a6ae0, nebel: 0x142a68 },
+    licht: { hoch: 0xb8d0ff, tief: 0x1a2a58, stark: 1.45, sonne: 0xd8e8ff, sonneStark: 1.7 },
+    bild: b => { himmelPlanet(b, 90, 100, 52, 0x2a70e0, 0x4aa8f8); himmelPlanet(b, -130, 170, 16, 0xe8e0d0, 0xfff8e8); himmelSterne(b, 120, 0xffffff, 20); himmelHorizont(b, 'mond', 0x182048, 0x344078); } },
+  { name: 'Das letzte Brötchen', sammel: 'broetchen',
+    himmel: { oben: 0x1a0a30, mitte: 0x6a1a6a, unten: 0xff9a4a, nebel: 0x5a2a5a },
+    licht: { hoch: 0xffd8c0, tief: 0x3a2050, stark: 1.45, sonne: 0xffd0a0, sonneStark: 1.7 },
+    bild: b => { himmelSonne(b, -60, 44, 46, 0xffa03a, 0xff5a60); himmelPlanet(b, 120, 150, 26, 0x2a70e0, 0x4aa8f8); himmelSterne(b, 90, 0xfff0e0, 70); himmelHorizont(b, 'mond', 0x2c1438, 0x5a2a58); },
+    kulisse: [RAUMPIRATEN(-1, 36), RAUMPIRATEN(1, 36)] }
+];
+
+// Eine zweite Wasserfläche über dem Grundwasser färbt das Meer passend zur Tageszeit
+function wasserFaerben(b, w, farbe, glanz) {
+  const z = wuerfel(70 + w);
+  const flaeche = (x0, x1, y) => {
+    b.platte(x0, x1, y, 15, -15, farbe);
+    for (let i = 0; i < 9; i++) {
+      const x = z.von(x0 + 4, x1 - 4);
+      b.box(z.von(3, 9), 0.01, 0.26, x, y + 0.03, z.von(-14, 14), glanz);
+    }
+  };
+  if (w === 0) flaeche(-90, -8.6, -0.42);
+  if (w === 1) flaeche(-95, -12, -0.36);
+  if (w === 3) { flaeche(-95, -8.6, -2.3); flaeche(8.6, 95, -2.3); }
 }

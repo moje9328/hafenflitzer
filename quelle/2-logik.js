@@ -40,12 +40,14 @@ class Kurs {
     return o;
   }
   muenzeReihe(spur, von, bis, y = 0.9, schritt = 3) {
-    for (let d = von; d <= bis; d += schritt) { this.muenzen.push({ spur, d, y, weg: false }); this.muenzenGesamt++; }
+    const reihe = { n: 0, hat: 0 };
+    for (let d = von; d <= bis; d += schritt) { this.muenzen.push({ spur, d, y, weg: false, reihe }); reihe.n++; this.muenzenGesamt++; }
   }
   muenzeBogen(spur, mitte, weite, hoch, basis = 0.9) {
+    const reihe = { n: 7, hat: 0 };
     for (let i = -3; i <= 3; i++) {
       const u = i / 3;
-      this.muenzen.push({ spur, d: mitte + u * weite, y: basis + (1 - u * u) * hoch, weg: false });
+      this.muenzen.push({ spur, d: mitte + u * weite, y: basis + (1 - u * u) * hoch, weg: false, reihe });
       this.muenzenGesamt++;
     }
   }
@@ -167,13 +169,13 @@ const MUSTER_BAU = {
     return 8;
   },
   // Schwimmring: Schleudert dich hoch. Oben hängen viele Münzen.
-  ring(k, d) {
+  ring(k, d, tempo) {
     const p = k.bewege();
     k.hilfen.push({ typ: 'schleuder', spur: p, d, y: 0, weg: false });
-    k.muenzeBogen(p, d + 13, 12, 5.5, 1.5);
+    k.muenzeBogen(p, d + tempo * 0.8, tempo * 0.75, 5.5, 1.5);   // Der Bogen passt zur Flugweite
     const seite = k.z.wahl(k.andere(p));
     k.teil('J', seite, d + 8);
-    return 22;
+    return Math.max(22, tempo * 1.4);
   },
   // Laterne: schwingt quer. Darunter kann man durchrutschen.
   laterne(k, d) {
@@ -213,6 +215,7 @@ function fallMuster(k, d, skin) {
   return 8;
 }
 
+const RAMPE_GNADE = 0.2;    // Sekunden Spielraum: Wer kurz nach der Rampe auf die Spur wechselt, kommt trotzdem hinauf
 const FLUG_Y = 4.4;         // So hoch fliegt die Badewanne
 const LUFT_MIN = 1.06;      // Selbst bei hohem Tempo immer mindestens so viele Sekunden Reaktionszeit
 
@@ -250,15 +253,15 @@ function levelPlan(nr, stufe) {
   const w = Math.floor((nr - 1) / 6);
   const arten = ['magnet', 'goldfisch', 'ring', 'stiefel', 'federn', 'magnet', 'goldfisch', 'stiefel', 'federn', 'wanne'];
   if (nr >= 4) arten.push('broetchen');
-  return { start: 0, laenge: L.laenge, v0: L.v0, v1: L.v1, luft: L.luft, muster: L.muster, welt: w, weltLuft: WELTEN[w].luft, hilfeAlle: 170, hilfeArten: arten };
+  return { start: 0, laenge: L.laenge, v0: L.v0, v1: L.v1, luft: L.luft, muster: L.muster, welt: w, weltLuft: WELTEN[w].luft, hilfeAlle: Math.max(170, (L.v0 + L.v1) * 4.75), hilfeArten: arten };
 }
 
 function endlosPlan(stufeNr, start) {
   const w = (stufeNr - 1) % WELTEN.length;
   const reihe = LEVEL.slice(w * 6, w * 6 + 6).filter(x => !x.boss);
   const muster = reihe[reihe.length - 1].muster.concat(reihe[reihe.length - 2].muster);
-  const v0 = Math.min(13 + (stufeNr - 1) * 2.4, 27);
-  return { start, laenge: ENDLOS_WELT_METER, v0, v1: Math.min(v0 + 2.4, 30), luft: Math.max(1.55 - (stufeNr - 1) * 0.07, 1.12), muster, welt: w, weltLuft: WELTEN[w].luft, hilfeAlle: 190, hilfeArten: ['magnet', 'goldfisch', 'ring', 'stiefel', 'federn', 'magnet', 'goldfisch', 'stiefel', 'federn', 'wanne', 'broetchen'] };
+  const v0 = Math.min(15 + (stufeNr - 1) * 4.5, 36);
+  return { start, laenge: ENDLOS_WELT_METER, v0, v1: Math.min(v0 + 3, 40), luft: Math.max(1.55 - (stufeNr - 1) * 0.07, 1.12), muster, welt: w, weltLuft: WELTEN[w].luft, hilfeAlle: Math.max(190, v0 * 10.5), hilfeArten: ['magnet', 'goldfisch', 'ring', 'stiefel', 'federn', 'magnet', 'goldfisch', 'stiefel', 'federn', 'wanne', 'broetchen'] };
 }
 
 // --------------------------- Spielzustand ---------------------------
@@ -276,6 +279,8 @@ function neuerZustand(levelNr, endlos) {
     herzen: stufe.herzen, ring: !!fig.startRing, punkte: 0, muenzenHier: 0, kette: 1, kettenStand: 0, getroffenHier: 0,
     magnet: 0, stiefel: 0, goldfisch: 0, federn: 0, teilIndex: 0,
     meldung: null, blase: null, fertig: 0, tot: 0, ergebnis: null, rekordAmStart: fortschritt().rekord,
+    rausch: 0, dampf: 0, spurt: false, rekordGemeldet: false, herzUhr: 0, knappZeit: -9, knappFolge: 0, lupeZeit: -9,
+    knappZahl: 0, krachZahl: 0, reihenZahl: 0, dampfZahl: 0, sterneTaler: 0, perfekt: false,
     talerHier: 0, ziel: Infinity, statBot: { sprung: 0, rutsch: 0, treffer: 0, seite: 0, muenzen: 0 }, angezeigt: {}
   };
   return f;
@@ -449,7 +454,7 @@ function schritt(dt) {
   let ziel = (st.plan.v0 + (st.plan.v1 - st.plan.v0) * fortschrittWert) * st.stufe.tempo;
   st.tempoFaktor = Math.min(1, st.tempoFaktor + dt * 0.5);
   if (st.fertig > 0) { st.fertig += dt; ziel *= Math.max(0.15, 1 - st.fertig * 0.6); }
-  st.tempo = ziel * (st.flug > 0 ? 1.12 : 1) * st.tempoFaktor;
+  st.tempo = ziel * (st.flug > 0 ? 1.12 : 1) * (st.dampf > 0 ? 1.15 : 1) * (st.spurt ? 1.08 : 1) * st.tempoFaktor;
   const vorher = st.dist;
   st.dist += st.tempo * dt;
   zaehleMeter(st.dist - vorher);
@@ -479,6 +484,11 @@ function schritt(dt) {
   st.stiefel = Math.max(0, st.stiefel - dt);
   st.federn = Math.max(0, st.federn - dt);
   st.goldfisch = Math.max(0, st.goldfisch - dt);
+  if (st.dampf > 0) {
+    st.dampf = Math.max(0, st.dampf - dt);
+    if (st.dampf === 0) { st.schutz = Math.max(st.schutz, 1.2); passeMusik(); }
+  }
+  pruefeSpannung(dt);
   if (st.flug > 0) { st.flug = Math.max(0, st.flug - dt); if (st.flug === 0) { st.schutz = Math.max(st.schutz, 1.2); st.vy = 0; st.amBoden = false; } }
   if (st.rutsch > 0) st.rutsch = Math.max(0, st.rutsch - dt);
   if (st.meldung) { st.meldung.zeit -= dt; if (st.meldung.zeit <= 0) st.meldung = null; }
@@ -560,7 +570,7 @@ function bodenUnter(x, dist, y) {
     if (Math.abs(x - SPUR_X[o.spur]) > 1.1) continue;
     const h = dachHoehe(o, dist);
     if (h < 0) continue;
-    const aufRampe = o.rampe && dist - o.d < o.rampe;
+    const aufRampe = o.rampe && dist - o.d < o.rampe + s.tempo * RAMPE_GNADE;
     if ((aufRampe || y >= h - 0.7) && h > boden) boden = h;
   }
   return boden;
@@ -589,7 +599,9 @@ function pruefeTeile() {
       if (dach < 0) continue;
       if (Math.abs(st.x - SPUR_X[o.spur]) >= BREITE_TREFFER) continue;
       if (st.y >= dach - 0.7) continue;
-      if (o.rampe && st.dist - o.d < o.rampe) continue;   // Eine Rampe stoppt nie, auch nicht von der Seite
+      if (o.rampe && st.dist - o.d < o.rampe + st.tempo * RAMPE_GNADE) continue;   // Eine Rampe stoppt nie, auch nicht von der Seite
+      // Mit Volldampf geht es einfach hinauf
+      if (st.dampf > 0) { st.y = dach; st.vy = 2; st.amBoden = false; continue; }
       if (st.schutz > 0) continue;
       if (Math.abs(st.xVorher - SPUR_X[o.spur]) >= BREITE_TREFFER - 0.02 || st.dist - o.d > 1) seitenStoss();
       else treffer(o);
@@ -599,12 +611,14 @@ function pruefeTeile() {
       // Vorbei: Knapp ausgewichen?
       if (!o.vorbei && st.dist > z + tiefe + 0.3) {
         o.vorbei = true;
-        if (st.flug <= 0) knappPruefen(o);
+        if (st.flug <= 0 && st.dampf <= 0) knappPruefen(o);
       }
       continue;
     }
     if (st.flug > 0) continue;
     if (o.art === 'F' && fallY(o, st.dist) > 2) continue;
+    // Volldampf macht auf allen drei Spuren alles platt, was vorbeikommt
+    if (st.dampf > 0) { zerschlage(o); continue; }
     const ox = teilX(o, st.dist);
     if (!o.breit && Math.abs(st.x - ox) >= BREITE_TREFFER) continue;
     if (oben <= o.y0 + 0.02 || unten >= o.y1) continue;
@@ -622,17 +636,95 @@ function knappPruefen(o) {
   if ((o.art === 'S' || o.art === 'L') && st.rutsch > 0 && st.rutsch < 0.2 && Math.abs(st.x - teilX(o, st.dist)) < 1) knapp = true;
   if (!knapp && (o.art === 'W' || o.art === 'M' || o.art === 'F') && st.wechselZeit < 0.42 && Math.abs(st.x - SPUR_X[o.spur]) < SPUR + 0.3) knapp = true;
   if (knapp) {
+    // Mehrere knappe Stellen kurz hintereinander zählen immer mehr
+    st.knappFolge = st.zeit - st.knappZeit < 3.5 ? Math.min(st.knappFolge + 1, 5) : 1;
+    st.knappZeit = st.zeit;
+    st.knappZahl++;
     zaehle('knapp');
     kettenPlus(10);
-    punkte(30, true);
-    melde('KNAPP! +' + zahl(30 * aktuellerFaktor()), 0.7);
+    const wert = 30 * st.knappFolge;
+    punkte(wert);
+    rauschPlus(14 + st.knappFolge * 4);
+    melde((st.knappFolge > 1 ? 'KNAPP x' + st.knappFolge : 'KNAPP!') + ' +' + zahl(wert * aktuellerFaktor()), 0.8);
+    ton.knapp(st.knappFolge);
+    funkenBei(st.x, st.y + 1, 0, 0xffffff, 8, 4);
+    // Ein winziger Moment Zeitlupe, aber nicht ständig
+    if (st.zeit - st.lupeZeit > 2) { st.lupeZeit = st.zeit; zeitlupe = 0.14; }
   } else {
     kettenPlus(3);
+    rauschPlus(3);
+  }
+}
+
+// --------------------------- Volldampf ---------------------------
+// Sauberes Laufen füllt die Leiste. Ist sie voll, ist man kurz unaufhaltsam.
+
+const DAMPF_DAUER = 5;
+let zeitlupe = 0;
+
+function rauschPlus(n) {
+  const st = s;
+  if (st.dampf > 0 || st.flug > 0 || st.tot > 0 || st.fertig > 0) return;
+  st.rausch = Math.min(100, st.rausch + n);
+  if (st.rausch >= 100) starteDampf();
+}
+
+function starteDampf() {
+  const st = s;
+  st.rausch = 0;
+  st.dampf = DAMPF_DAUER;
+  st.dampfZahl++;
+  st.rutsch = 0;
+  zaehle('dampf');
+  melde('VOLLDAMPF!', 1.5);
+  ton.dampf();
+  wackle(0.5);
+  funkenBei(st.x, st.y + 1, 0, 0xffb020, 34, 8);
+  passeMusik();
+}
+
+function zerschlage(o) {
+  const st = s;
+  o.weg = st.zeit;
+  o.vorbei = true;
+  st.krachZahl++;
+  zaehle('krach');
+  punkte(40);
+  kettenPlus(6);
+  melde('KRACH! +' + zahl(40 * aktuellerFaktor()), 0.6);
+  ton.krach();
+  wackle(o.art === 'M' ? 0.7 : 0.35);
+  funkenBei(teilX(o, st.dist), 1, -0.5, o.art === 'M' ? 0xd8c8a8 : 0xffc060, o.art === 'M' ? 30 : 18, 8);
+}
+
+function passeMusik() {
+  musik.mal = (s.dampf > 0 ? 1.16 : 1) * (s.spurt ? 1.08 : 1);
+}
+
+// Zielspurt, neuer Rekord und der Herzschlag beim letzten Herz
+function pruefeSpannung(dt) {
+  const st = s;
+  if (st.tot > 0 || st.fertig > 0) return;
+  if (!st.endlos && !st.spurt && st.dist >= st.ziel * 0.88) {
+    st.spurt = true;
+    melde('ZIELSPURT!', 1.3);
+    ton.spurt();
+    passeMusik();
+  }
+  if (!st.rekordGemeldet && st.rekordAmStart > 0 && st.punkte > st.rekordAmStart) {
+    st.rekordGemeldet = true;
+    melde('NEUER REKORD!', 1.6);
+    ton.fanfare();
+    for (const farbe of [0xffd24a, 0xff5a7a, 0x5ae0ff]) funkenBei(st.x, st.y + 2, -1, farbe, 12, 7);
+  }
+  if (st.herzen === 1 && st.stufe.herzen > 1) {
+    st.herzUhr -= dt;
+    if (st.herzUhr <= 0) { st.herzUhr = 0.85; ton.herz(); }
   }
 }
 
 function aktuellerFaktor() {
-  return s.stufe.faktor * s.kette * (s.goldfisch > 0 ? 2 : 1) * (s.fig.punkte || 1);
+  return s.stufe.faktor * s.kette * (s.goldfisch > 0 ? 2 : 1) * (s.dampf > 0 ? 2 : 1) * (s.fig.punkte || 1);
 }
 function punkte(wert) { s.punkte += wert * aktuellerFaktor(); }
 
@@ -657,6 +749,7 @@ function seitenStoss() {
   st.spur = st.spurVorher != null ? st.spurVorher : st.spur;
   st.kette = Math.max(1, st.kette - 1);
   st.kettenStand = 0;
+  st.rausch = Math.max(0, st.rausch - 15);
   st.stolpern = 0.35;
   st.schutz = Math.max(st.schutz, 0.35);
   st.tempoFaktor = Math.min(st.tempoFaktor, 0.82);
@@ -670,6 +763,7 @@ function treffer(o) {
   const st = s;
   if (st.ring) {
     st.ring = false;
+    st.rausch = Math.max(0, st.rausch - 25);
     st.schutz = 1.6;
     if (o.art === 'C') { st.y = o.y1 + 0.05; st.vy = 3; st.amBoden = false; }
     melde('RING GERETTET!', 1.1);
@@ -683,6 +777,7 @@ function treffer(o) {
   st.statBot.treffer++;
   st.kette = Math.max(1, Math.ceil(st.kette / 2));
   st.kettenStand = 0;
+  st.rausch = 0;
   st.schutz = 1.3;
   st.stolpern = 0.7;
   st.tempoFaktor = 0.45;
@@ -764,7 +859,7 @@ function pruefeSammeln(dt) {
   }
 }
 
-function nimmMuenze() {
+function nimmMuenze(m) {
   const st = s;
   st.muenzenHier++;
   st.statBot.muenzen++;
@@ -776,6 +871,16 @@ function nimmMuenze() {
   zaehle('muenzen');
   ton.muenze(st.zeit);
   if (grafikBereit) funken(0.9);
+  // Die ganze Reihe erwischt? Das gibt extra.
+  if (m.reihe && ++m.reihe.hat === m.reihe.n && m.reihe.n >= 4) {
+    st.reihenZahl++;
+    punkte(25);
+    kettenPlus(4);
+    rauschPlus(7);
+    ton.reihe();
+    funkenBei(st.x, st.y + 1.4, -0.4, 0xffe45a, 14, 6);
+    if (!st.meldung) melde('VOLLE REIHE! +' + zahl(25 * aktuellerFaktor()), 0.7);
+  }
 }
 
 function nimmHilfe(typ) {
@@ -831,6 +936,9 @@ function levelFertig() {
   const st = s;
   st.fertig = 0.001;
   st.spur = 1;
+  st.dampf = 0;
+  st.spurt = false;
+  for (const farbe of [0xffd24a, 0xff5a7a, 0x5ae0ff, 0x8aff7a]) funkenBei(st.x, st.y + 2.2, -1, farbe, 16, 8);
   const f = fortschritt();
   const coinsAnteil = st.muenzenHier / Math.max(1, st.k.muenzenGesamt);
   let sterne = 1;
@@ -843,6 +951,10 @@ function levelFertig() {
   st.bonus = Math.round(bonus * st.stufe.faktor);
   st.punkte += st.bonus;
   const vorherFrei = Object.keys(FIGUREN).filter(figurFrei);
+  // Jeder neu verdiente Stern bringt einmalig Taler
+  st.sterneTaler = Math.max(0, sterne - (f.sterne[nr] || 0)) * 25;
+  daten.taler += st.sterneTaler;
+  st.perfekt = st.getroffenHier === 0 && coinsAnteil >= 0.6;
   f.sterne[nr] = Math.max(f.sterne[nr] || 0, sterne);
   if (nr >= f.frei) f.frei = Math.min(nr + 1, LEVEL.length + 1);
   merkeRekord();
