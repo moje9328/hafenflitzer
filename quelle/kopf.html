@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Hafenflitzer – Pixelhafen</title>
+<meta name="description" content="Möwe Gisela hat dein Fischbrötchen geklaut! Renn ihr in 3D hinterher: 30 Level, 5 Welten, 11 verrückte Figuren. Kostenlos, ohne Anmeldung, ohne Werbung.">
+<!-- App-Einstellungen, damit sich das Spiel auf dem Handy wie eine App verhält -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#14151a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hafenflitzer">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<script>
+  // Nimmt Hell oder Dunkel von der Pixelhafen-Seite mit, falls dort etwas gewählt wurde
+  try {
+    const saved = localStorage.getItem('design');
+    if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+  } catch (error) {}
+</script>
+<style>
+  /* Schrift "Press Start 2P", Copyright 2012 The Press Start 2P Project Authors,
+     SIL Open Font License 1.1 (https://openfontlicense.org). Sie steckt direkt in dieser
+     Datei, damit das Spiel auch offline und ohne Verbindung zu Google richtig aussieht. */
+  @font-face {
+    font-family: 'Press Start 2P';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(%%SCHRIFT%%) format('woff2');
+  }
+
+  /* Dieselben Farben wie auf der Pixelhafen-Seite */
+  :root {
+    color-scheme: dark;
+    --bg: #14151a;
+    --surface: #1c1e25;
+    --surface-2: #272a33;
+    --line: #363a46;
+    --text: #ece9e2;
+    --muted: #b1b0ae;
+    --accent: #f2b84b;
+    --accent-edge: #a9781f;
+    --on-accent: #1d1505;
+    --retro: 'Press Start 2P', 'Courier New', monospace;
+    --body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --bg: #f4f0e6; --surface: #fdfbf5; --surface-2: #ebe6d8; --line: #d4cdbb; --text: #24232a; --muted: #5c5a63; --accent: #8a5600; --accent-edge: #b58628;
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f4f0e6; --surface: #fdfbf5; --surface-2: #ebe6d8; --line: #d4cdbb; --text: #24232a; --muted: #5c5a63; --accent: #8a5600; --accent-edge: #b58628;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; background: var(--bg); touch-action: none; }
+  body {
+    position: fixed;
+    inset: 0;
+    color: var(--text);
+    font: 16px/1.5 var(--body);
+    -webkit-font-smoothing: antialiased;
+    /* Kein Markieren und kein Lupen-Menü beim Spielen mit dem Finger */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+  [hidden] { display: none !important; }
+
+  canvas#bild { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #0a0b10; touch-action: none; }
+  body.imSpiel canvas#bild { cursor: grab; }
+
+  /* Anzeige im Spiel: liegt über dem Bild, darf aber nie das Wischen stören */
+  #hud {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 10px max(10px, env(safe-area-inset-left));
+    color: #fff;
+  }
+  .hudZeile { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .knoepfchen { display: flex; gap: 6px; pointer-events: auto; }
+  .rund {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    color: #fff;
+    cursor: pointer;
+    background: rgba(16, 18, 26, 0.68);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 11px;
+  }
+  .rund:hover { background: rgba(38, 42, 56, 0.86); }
+  .rund svg { width: 18px; height: 18px; }
+  #tonAus { display: none; }
+  .stumm #tonAn { display: none; }
+  .stumm #tonAus { display: block; }
+  .tafelchen { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .wertBox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 6px 11px;
+    background: rgba(16, 18, 26, 0.72);
+    border-radius: 10px;
+    font: 14px/1 var(--retro);
+    white-space: nowrap;
+  }
+  #kette { color: #ffd24a; font-size: 12px; }
+  #kette.heiss { color: #ff7a4a; }
+  #punkte { color: #fff; min-width: 3ch; text-align: right; }
+  .wertBox svg { width: 17px; height: 17px; color: #ffc21a; flex: none; }
+  #herzen { display: flex; gap: 2px; align-items: center; min-height: 24px; flex-wrap: wrap; max-width: 140px; }
+  #herzen svg { width: 20px; height: 20px; color: #ff4256; filter: drop-shadow(0 1px 0 rgba(0,0,0,.6)); }
+  #herzen svg.ringsymbol { color: #fff; }
+  .linkeSpalte { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  #wegBox { position: fixed; left: 50%; top: max(10px, env(safe-area-inset-top)); transform: translateX(-50%); width: min(30vw, 240px); text-align: center; pointer-events: none; }
+  #wegName { display: block; margin-bottom: 6px; font: 8px/1.3 var(--retro); text-shadow: 0 1px 2px rgba(0, 0, 0, .9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #wegSchiene { display: block; height: 9px; overflow: hidden; background: rgba(16, 18, 26, 0.72); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 5px; }
+  #wegBalken { display: block; height: 100%; width: 0; background: #ffc21a; }
+  #hilfenLeiste { position: fixed; left: max(10px, env(safe-area-inset-left)); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 68px); display: flex; flex-direction: column; gap: 6px; width: min(46vw, 190px); }
+  .pille { position: relative; display: block; overflow: hidden; padding: 7px 10px 10px; background: rgba(16, 18, 26, 0.76); border-radius: 8px; }
+  .pille b { display: block; font: 8px/1.2 var(--retro); color: var(--f); }
+  .pille i { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--f); transition: width .2s linear; }
+  #meldung {
+    position: fixed; left: 0; right: 0; top: 19%; margin: 0;
+    padding: 0 12px; text-align: center;
+    color: #ffe45a; font: clamp(14px, 3.6vw, 24px)/1.35 var(--retro);
+    text-shadow: 0 3px 0 #17151c, 0 -2px 0 #17151c, 2px 0 0 #17151c, -2px 0 0 #17151c;
+  }
+  #lehre {
+    position: fixed; left: 50%; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(92vw, 520px); margin: 0;
+    padding: 12px 14px; background: rgba(16, 18, 26, 0.84); border: 2px solid #ffc21a; border-radius: 12px;
+    text-align: center; font: 600 clamp(15px, 2.2vw, 18px)/1.3 var(--body); color: #fff;
+  }
+  #blase {
+    position: fixed; left: 50%; top: 30%; transform: translateX(-50%); margin: 0; max-width: min(84vw, 420px);
+    padding: 9px 14px; background: #fff; color: #17151c; border-radius: 14px;
+    font: 700 clamp(14px, 2vw, 17px)/1.25 var(--body); text-align: center; box-shadow: 0 3px 0 #17151c;
+  }
+  #blase::after { content: ''; position: absolute; left: 50%; bottom: -9px; margin-left: -9px; border: 9px solid transparent; border-top-color: #fff; border-bottom: 0; }
+  #zaehler {
+    position: fixed; inset: 0; z-index: 3; display: grid; place-items: center; pointer-events: none; color: #fff;
+    font: clamp(50px, 14vw, 110px)/1 var(--retro); text-shadow: 0 6px 0 #17151c, 3px 0 0 #17151c, -3px 0 0 #17151c, 0 -3px 0 #17151c;
+  }
+  #uebergang { position: fixed; inset: 0; z-index: 3; pointer-events: none; background: #fff; opacity: 0; }
+  #uebergang.an { animation: uebergang 0.65s ease-out; }
+  @keyframes uebergang { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* Fenster für Start, Pause und Ende */
+  #fenster {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    overflow-y: auto;
+    background: rgba(10, 12, 18, 0.6);
+    touch-action: pan-y;
+  }
+  #fenster.imMenue { background: linear-gradient(180deg, rgba(10,12,18,.36), rgba(10,12,18,.2)); }
+  .tafel {
+    width: min(430px, 100%);
+    margin: auto;
+    padding: 24px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+  }
+  /* Auf breiten Bildschirmen steht das Menü links und rechts läuft die Figur */
+  @media (min-width: 900px) and (min-aspect-ratio: 11/10) {
+    #fenster.imMenue .tafel { margin-left: max(5vw, 24px); }
+  }
+  .marke { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; color: var(--muted); font: 9px/1.5 var(--retro); }
+  .marke svg { width: 22px; height: 22px; flex: none; color: var(--accent); }
+  h1, h2 { margin: 0; font: 400 clamp(19px, 6vw, 25px)/1.3 var(--retro); letter-spacing: -0.02em; overflow-wrap: anywhere; }
+  h2 { font-size: clamp(16px, 5vw, 21px); }
+  .unterzeile { margin: 12px 0 0; color: var(--muted); }
+  .klein { margin: 12px 0 0; color: var(--muted); font-size: 15px; line-height: 1.4; }
+  .rekordzeile { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 16px 0 0; color: var(--muted); font: 10px/1.6 var(--retro); }
+  .rekord { margin: 16px 0 0; color: var(--muted); font: 10px/1.6 var(--retro); }
+  .rekord b, .rekordzeile b { color: var(--accent); font-weight: 400; }
+  .zahlen { display: grid; gap: 8px; margin: 18px 0 0; padding: 0; }
+  .zahlen div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .zahlen dt { color: var(--muted); }
+  .zahlen dd { margin: 0; font: 13px/1.4 var(--retro); }
+  .hervor { margin: 16px 0 0; color: var(--accent); font: 11px/1.6 var(--retro); }
+  .knoepfe { display: grid; gap: 12px; margin-top: 20px; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 10px 18px;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 3px 0 var(--line);
+    font: 600 16px/1.3 var(--body);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .btn:hover:not(:disabled) { filter: brightness(1.07); }
+  .btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--line); }
+  .btn:disabled { color: var(--muted); cursor: default; box-shadow: none; opacity: 0.65; }
+  .btn.main { color: var(--on-accent); background: #f2b84b; border-color: #f2b84b; box-shadow: 0 3px 0 var(--accent-edge); }
+  .btn.main:active { box-shadow: 0 1px 0 var(--accent-edge); }
+  .paar { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .stufen { display: flex; gap: 4px; margin-top: 18px; padding: 4px; background: var(--surface-2); border-radius: 14px; }
+  .stufen button {
+    flex: 1 1 0; min-width: 0; min-height: 44px; padding: 8px 4px; color: var(--muted); background: transparent; border: 0; border-radius: 10px; font: 600 15px/1.3 var(--body); cursor: pointer;
+  }
+  .stufen button:hover { color: var(--text); }
+  .stufen button[aria-pressed="true"] { color: var(--text); background: var(--surface); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+
+  #duell { margin: 16px 0 0; padding: 12px 14px; background: var(--surface-2); border-left: 4px solid #f2b84b; border-radius: 8px; line-height: 1.4; }
+  #duell strong { display: block; margin-bottom: 4px; color: var(--accent); font: 10px/1.6 var(--retro); overflow-wrap: anywhere; }
+
+  .welt { display: flex; align-items: center; gap: 8px; margin: 16px 0 6px; color: var(--muted); font: 9px/1.5 var(--retro); }
+  .welt i { flex: none; width: 10px; height: 10px; }
+  .raster { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+  .feldchen {
+    display: grid; place-items: center; align-content: center; gap: 4px; min-height: 50px; padding: 4px 0;
+    color: var(--text); cursor: pointer; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; font: 11px/1 var(--retro);
+  }
+  .feldchen:hover:not(:disabled) { filter: brightness(1.1); }
+  .feldchen:disabled { color: var(--muted); cursor: default; background: transparent; opacity: 0.6; }
+  .feldchen.aktuell { border-color: #f2b84b; box-shadow: inset 0 0 0 1px #f2b84b; }
+  .feldchen.bossfeld { background: color-mix(in srgb, var(--surface-2) 82%, #e8503a); }
+  .ministerne { display: flex; gap: 1px; height: 8px; }
+  .ministerne svg { width: 8px; height: 8px; color: var(--line); }
+  .ministerne svg.an { color: var(--accent); }
+
+  .sterne { display: flex; gap: 10px; margin: 18px 0 0; }
+  .sterne svg { width: 40px; height: 40px; color: var(--line); }
+  .sterne svg.an { color: #f2b84b; animation: stern 0.35s ease-out backwards; }
+  .sterne svg.an:nth-child(2) { animation-delay: 0.15s; }
+  .sterne svg.an:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes stern { from { opacity: 0; transform: scale(0.3); } }
+
+  /* Figuren */
+  .figuren { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+  .figurKnopf {
+    display: grid; justify-items: center; align-content: start; gap: 4px; padding: 8px 8px 10px;
+    color: var(--text); cursor: pointer; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; font: 600 15px/1.25 var(--body); text-align: center;
+  }
+  .figurKnopf:hover:not(:disabled) { filter: brightness(1.08); }
+  .figurKnopf:disabled { color: var(--muted); cursor: default; background: transparent; }
+  .figurKnopf:disabled canvas { filter: brightness(0) opacity(0.5); }
+  .figurKnopf[aria-pressed="true"] { border-color: #f2b84b; box-shadow: inset 0 0 0 2px #f2b84b; }
+  .figurKnopf canvas { width: 104px; height: 104px; }
+  .figurKnopf small { color: var(--accent); font: 8px/1.3 var(--retro); }
+  .figurKnopf em { font: 13px/1.3 var(--body); font-style: normal; color: var(--muted); }
+  #gNeu { display: flex; gap: 12px; align-items: center; margin-top: 16px; padding: 12px; background: var(--surface-2); border: 2px solid #f2b84b; border-radius: 12px; }
+  #gNeuBild canvas { width: 86px; height: 86px; display: block; }
+  #gNeu strong { display: block; margin-top: 4px; }
+  #gNeu .klein { margin: 4px 0 0; font-size: 14px; }
+  #gNeuKnopf { margin-top: 8px; min-height: 44px; padding: 8px 14px; font-size: 15px; }
+  #gDialog { font-style: italic; }
+
+  /* Werkstatt und Aufträge */
+  .wzeile { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 8px; background: var(--surface-2); border-radius: 12px; }
+  .wzeile canvas { flex: none; width: 54px; height: 54px; }
+  .wtext { flex: 1 1 auto; min-width: 0; line-height: 1.3; }
+  .wtext strong { display: block; font-size: 15px; }
+  .wtext small { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
+  .wstufen { display: flex; gap: 3px; margin-top: 5px; }
+  .wstufen i { width: 16px; height: 6px; background: var(--line); border-radius: 2px; }
+  .wstufen i.an { background: var(--accent); }
+  .wkauf { flex: none; min-height: 44px; padding: 8px 10px; font-size: 14px; }
+  #auftragListe { display: grid; gap: 10px; margin: 16px 0 0; padding: 0; list-style: none; }
+  #auftragListe li { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; padding: 12px; background: var(--surface-2); border-radius: 12px; align-items: center; }
+  #auftragListe b { color: var(--accent); font: 11px/1 var(--retro); }
+  #auftragListe i { grid-column: 1 / -1; display: block; height: 8px; overflow: hidden; background: var(--bg); border-radius: 4px; }
+  #auftragListe u { display: block; height: 100%; background: #f2b84b; }
+  #auftragListe small { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+
+  #liste { display: grid; gap: 6px; margin: 16px 0 0; padding: 0; list-style: none; }
+  #liste li { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 4px 6px 4px 12px; background: var(--surface-2); border-radius: 10px; }
+  #liste li.ich { box-shadow: inset 0 0 0 2px #f2b84b; }
+  #liste .platz { flex: none; width: 22px; color: var(--muted); font: 10px/1 var(--retro); }
+  #liste .wer { flex: 1 1 auto; min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  #liste .wie { flex: none; font: 11px/1 var(--retro); }
+  #liste .weg { flex: none; width: 36px; height: 36px; padding: 0; color: var(--muted); cursor: pointer; background: transparent; border: 0; border-radius: 8px; font-size: 20px; line-height: 1; }
+  #liste .weg:hover { color: var(--text); background: var(--surface); }
+  #liste .platzhalter { width: 36px; flex: none; }
+
+  label.feldname { display: grid; gap: 6px; margin-top: 16px; font-weight: 600; }
+  input[type="text"] {
+    width: 100%; min-height: 48px; padding: 10px 12px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    font: 16px/1.3 var(--body); /* 16px verhindert das Zoomen auf dem iPhone */
+    -webkit-user-select: text; user-select: text;
+  }
+  #teilenStatus { min-height: 24px; margin: 12px 0 0; color: var(--accent); font-weight: 600; }
+  #teilenStatus:empty { display: none; }
+
+  .regeln { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; font-size: 15px; line-height: 1.4; }
+  .regeln li { display: grid; grid-template-columns: 8px 1fr; column-gap: 10px; }
+  .regeln li::before { content: ''; width: 8px; height: 8px; margin-top: 7px; background: var(--accent); }
+  .legende { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; font-size: 14px; line-height: 1.3; }
+  .legende li { display: flex; align-items: center; gap: 10px; }
+  .legende canvas { flex: none; width: 56px; height: 56px; }
+  .zwischen { margin: 18px 0 0; font: 10px/1.6 var(--retro); color: var(--accent); }
+  #keinBild { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; padding: 24px; background: var(--bg); text-align: center; }
+
+  /* Handy quer: Das Startfenster wird flacher, damit "Spielen" ohne Scrollen zu sehen ist */
+  @media (orientation: landscape) and (max-height: 560px) {
+    .tafel { width: min(620px, 100%); padding: 16px 20px; }
+    #fStart .marke, #fStart .unterzeile, #fStart .js-stufentext { display: none; }
+    #fStart .stufen, #fStart .rekordzeile { margin-top: 10px; }
+    #fStart .knoepfe { grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    #fStart .btn.main { grid-column: 1 / -1; }
+    #fStart .paar { display: contents; }
+    .figuren { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    #meldung { top: 16%; }
+        #blase { top: 24%; }
+  }
+  @media (max-width: 359px) {
+    .wertBox { font-size: 11px; padding: 5px 8px; }
+    .rund { width: 40px; height: 44px; }
+    .tafel { padding: 18px; }
+    #wegBox { width: 24vw; }
+  }
+  @media (max-width: 520px) {
+    #wegBox { top: calc(max(10px, env(safe-area-inset-top)) + 54px); width: 56vw; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .btn:active { transform: none; }
+    .sterne svg.an { animation: none; }
+    #uebergang.an { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="stern" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.5l3.2 6.9 7.5.9-5.5 5.2 1.4 7.5L12 18.4l-6.6 3.6 1.4-7.5L1.3 9.3l7.5-.9z"/></symbol>
+  <symbol id="herz" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21.4l-1.5-1.3C5 15.1 2 12.4 2 8.9 2 6.1 4.2 4 7 4c1.8 0 3.6.9 5 2.5C13.4 4.9 15.2 4 17 4c2.8 0 5 2.1 5 4.9 0 3.5-3 6.2-8.5 11.2z"/></symbol>
+  <symbol id="ringsym" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 6a4 4 0 110 8 4 4 0 010-8z"/><path fill="#f0382e" d="M9 2.5h6L14 8h-4zM9 21.5h6L14 16h-4zM2.5 9v6L8 14v-4zM21.5 9v6L16 14v-4z"/></symbol>
+  <symbol id="muenze" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="currentColor"/><circle cx="12" cy="12" r="7.5" fill="none" stroke="#b4780c" stroke-width="1.6"/><path fill="#b4780c" d="M11 6h2v9h-2zM8.5 8h7v1.6h-7zM7 13h2c.2 1.4 1 2.1 3 2.2 2-.1 2.8-.8 3-2.2h2c-.3 2.6-2 4-5 4s-4.7-1.4-5-4z"/></symbol>
+  <symbol id="logo" viewBox="0 0 11 11"><path fill="currentColor" d="M4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM4 1h1v1h-1zM6 1h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM5 3h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM5 5h1v1h-1zM0 6h1v1h-1zM5 6h1v1h-1zM10 6h1v1h-1zM0 7h1v1h-1zM1 7h1v1h-1zM5 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM0 8h1v1h-1zM5 8h1v1h-1zM10 8h1v1h-1zM1 9h1v1h-1zM2 9h1v1h-1zM5 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM3 10h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1z"/></symbol>
+</svg>
+
+<canvas id="bild" role="img" aria-label="Spielfeld von Hafenflitzer"></canvas>
+
+<div id="hud" hidden>
+  <div class="hudZeile">
+    <div class="linkeSpalte">
+      <div class="knoepfchen">
+        <button class="rund" id="pauseKnopf" type="button" aria-label="Pause">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 3h3v10H4zM9 3h3v10H9z"/></svg>
+        </button>
+        <button class="rund" id="tonKnopf" type="button" aria-label="Ton an oder aus">
+          <svg id="tonAn" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 5h3v6H2zM6 4h1v8H6zM7 3h1v10H7zM10 5h1v6h-1zM12 3h1v10h-1z"/></svg>
+          <svg id="tonAus" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 5h3v6H2zM6 4h1v8H6zM7 3h1v10H7zM10 5h1v1h-1zM11 6h1v1h-1zM12 7h1v2h-1zM11 9h1v1h-1zM10 10h1v1h-1zM14 5h1v1h-1zM13 6h1v1h-1zM14 10h1v1h-1zM13 9h1v1h-1z"/></svg>
+        </button>
+      </div>
+      <div id="herzen" role="img"></div>
+    </div>
+    <div class="tafelchen">
+      <div class="wertBox"><span id="kette">x1</span><span id="punkte">0</span></div>
+      <div class="wertBox"><span id="muenzen">0</span><svg aria-hidden="true"><use href="#muenze"/></svg></div>
+    </div>
+  </div>
+  <div id="wegBox">
+    <span id="wegName"></span>
+    <span id="wegSchiene"><span id="wegBalken"></span></span>
+  </div>
+  <div id="hilfenLeiste"></div>
+  <p id="meldung" hidden></p>
+  <p id="blase" hidden></p>
+  <p id="lehre" hidden></p>
+</div>
+<div id="zaehler" hidden></div>
+<div id="uebergang" aria-hidden="true"></div>
+
+<div id="fenster">
+  <div class="tafel">
+
+    <section id="fStart">
+      <p class="marke"><svg aria-hidden="true"><use href="#logo"/></svg>PIXELHAFEN</p>
+      <h1>HAFEN&shy;FLITZER</h1>
+      <p class="unterzeile">Möwe Gisela hat dein Fischbrötchen geklaut! Renn ihr hinterher, spring, rutsch und sammle Taler.</p>
+      <div id="duell" hidden><strong id="duellTitel"></strong><span id="duellText"></span></div>
+      <div class="stufen" role="group" aria-label="Schwierigkeit"></div>
+      <p class="klein js-stufentext"></p>
+      <p class="rekordzeile"><span>REKORD <b class="js-rekord">0</b></span><span>TALER <b class="js-taler">0</b></span></p>
+      <div class="knoepfe">
+        <button class="btn main" id="losKnopf" type="button">Spielen</button>
+        <div class="paar">
+          <button class="btn" type="button" data-oeffne="fLevels">Level</button>
+          <button class="btn" id="endlosKnopf" type="button">Dauerlauf</button>
+        </div>
+        <div class="paar">
+          <button class="btn" type="button" data-oeffne="fFiguren"><span id="figurKnopfText">Figuren</span></button>
+          <button class="btn" type="button" data-oeffne="fWerkstatt">Werkstatt</button>
+        </div>
+        <div class="paar">
+          <button class="btn" type="button" data-oeffne="fAuftraege">Aufträge</button>
+          <button class="btn" type="button" data-oeffne="fListe">Rangliste</button>
+        </div>
+        <button class="btn" type="button" data-oeffne="fHilfe">So geht's</button>
+        <a class="btn" href="https://moje9328.github.io/spiele/">Zur Pixelhafen-Seite</a>
+      </div>
+      <p class="klein" style="margin-top:14px">Du spielst als <strong id="startFigur"></strong>.</p>
+    </section>
+
+    <section id="fLevels" hidden>
+      <h2>LEVEL WÄHLEN</h2>
+      <div class="stufen" role="group" aria-label="Schwierigkeit"></div>
+      <div id="levelListe"></div>
+      <p class="klein">Jedes sechste Level jagst du Gisela. Sie wirft mit allem, was sie findet.</p>
+      <div class="knoepfe"><button class="btn" type="button" data-oeffne="fStart">Zurück</button></div>
+    </section>
+
+    <section id="fFiguren" hidden>
+      <h2>FIGUREN</h2>
+      <p class="klein" id="figurenText"></p>
+      <div class="figuren" id="figurenListe"></div>
+      <div class="knoepfe"><button class="btn" type="button" data-oeffne="fStart">Zurück</button></div>
+    </section>
+
+    <section id="fWerkstatt" hidden>
+      <h2>WERKSTATT</h2>
+      <p class="rekord">DEINE TALER <b class="js-taler">0</b></p>
+      <p class="klein">Jede Münze ist ein Taler. Damit halten deine Hilfen länger.</p>
+      <div id="werkstattListe"></div>
+      <div class="knoepfe"><button class="btn" type="button" data-oeffne="fStart">Zurück</button></div>
+    </section>
+
+    <section id="fAuftraege" hidden>
+      <h2>AUFTRÄGE</h2>
+      <p class="klein">Drei Aufträge sind immer offen. Sie zählen über alle Läufe und bringen dir Taler.</p>
+      <ul id="auftragListe"></ul>
+      <div class="knoepfe"><button class="btn" type="button" data-oeffne="fStart">Zurück</button></div>
+    </section>
+
+    <section id="fListe" hidden>
+      <h2>RANGLISTE</h2>
+      <div class="stufen" role="group" aria-label="Schwierigkeit"></div>
+      <ol id="liste"></ol>
+      <p class="klein">Schick deinen Link an Freunde. Schicken sie dir ihren zurück, stehen sie hier in deiner Liste. Alles bleibt auf deinem Gerät.</p>
+      <div class="knoepfe">
+        <button class="btn main" id="listeTeilen" type="button">Freunde herausfordern</button>
+        <button class="btn" type="button" data-oeffne="fStart">Zurück</button>
+      </div>
+    </section>
+
+    <section id="fHilfe" hidden>
+      <h2>SO GEHT'S</h2>
+      <p class="zwischen">STEUERUNG</p>
+      <ul class="regeln"><li><strong id="hilfeSteuerung"></strong></li></ul>
+      <p class="zwischen">WAS IST WAS?</p>
+      <ul class="legende" id="legendeRegel"></ul>
+      <p class="zwischen">REGELN</p>
+      <ul class="regeln">
+        <li>Läufst du von vorne gegen etwas, kostet das ein Herz. Sind alle weg, ist der Lauf vorbei.</li>
+        <li>Stößt du nur seitlich an, schubst es dich zurück. Das tut nicht weh, kostet aber etwas vom Punkte-Faktor.</li>
+        <li>Wer viele Münzen sammelt und knapp ausweicht, steigert den Punkte-Faktor bis x9.</li>
+      </ul>
+      <p class="zwischen">STERNE</p>
+      <ul class="regeln">
+        <li>1 Stern fürs Ankommen, 1 Stern für 60 % der Münzen, 1 Stern für einen Lauf ohne Treffer.</li>
+      </ul>
+      <p class="zwischen">HILFEN</p>
+      <ul class="legende" id="legendeHilfen"></ul>
+      <p class="zwischen">DIE 5 WELTEN</p>
+      <ul class="regeln" id="weltenListe"></ul>
+      <p class="zwischen">DAUERLAUF</p>
+      <ul class="regeln">
+        <li>Ein Lauf ohne Ende: Es wird immer schneller und die Welt wechselt von selbst. Dein bester Lauf ist deine Rangliste.</li>
+      </ul>
+      <div class="knoepfe"><button class="btn" type="button" data-oeffne="fStart">Zurück</button></div>
+    </section>
+
+    <section id="fPause" hidden>
+      <h2>PAUSE</h2>
+      <p class="rekord">PUNKTE <b id="pausePunkte">0</b></p>
+      <div class="knoepfe">
+        <button class="btn main" id="weiterKnopf" type="button">Weiterlaufen</button>
+        <button class="btn" id="pauseMusik" type="button">Musik</button>
+        <button class="btn" id="pauseNeu" type="button">Neu starten</button>
+        <button class="btn" id="pauseMenue" type="button">Spiel beenden</button>
+      </div>
+    </section>
+
+    <section id="fGeschafft" hidden>
+      <h2 id="geschafftTitel">LEVEL GESCHAFFT</h2>
+      <p class="klein" id="gDialog" hidden></p>
+      <div class="sterne" id="geschafftSterne" role="img"></div>
+      <dl class="zahlen">
+        <div><dt>Münzen</dt><dd id="gMuenzen"></dd></div>
+        <div><dt>Taler</dt><dd id="gTaler"></dd></div>
+        <div><dt>Level-Bonus</dt><dd id="gBonus"></dd></div>
+        <div><dt>Punkte gesamt</dt><dd id="gPunkte"></dd></div>
+      </dl>
+      <div id="gNeu" hidden>
+        <div id="gNeuBild"></div>
+        <div>
+          <p class="hervor" style="margin:0">NEUE FIGUR!</p>
+          <strong id="gNeuName"></strong>
+          <p class="klein" id="gNeuText"></p>
+          <button class="btn" id="gNeuKnopf" type="button"></button>
+        </div>
+      </div>
+      <p class="klein" id="gTipp"></p>
+      <div class="knoepfe">
+        <button class="btn main" id="naechstesKnopf" type="button">Weiter</button>
+        <button class="btn" id="geschafftMenue" type="button">Zum Menü</button>
+      </div>
+    </section>
+
+    <section id="fEnde" hidden>
+      <h2>GAME OVER</h2>
+      <p class="klein" id="eSpruch"></p>
+      <p class="hervor" id="neuerRekord" hidden>NEUER REKORD!</p>
+      <dl class="zahlen">
+        <div><dt>Punkte</dt><dd id="ePunkte"></dd></div>
+        <div><dt>Münzen</dt><dd id="eMuenzen"></dd></div>
+        <div><dt id="eLevelName">Level</dt><dd id="eLevel"></dd></div>
+        <div><dt>Dein Rekord</dt><dd id="eRekord"></dd></div>
+      </dl>
+      <p class="klein" id="eDuell" hidden></p>
+      <div class="knoepfe">
+        <button class="btn main" id="nochmalKnopf" type="button">Nochmal</button>
+        <button class="btn" id="endeTeilen" type="button">Freunde herausfordern</button>
+        <button class="btn" type="button" data-oeffne="fStart">Zum Menü</button>
+      </div>
+    </section>
+
+    <section id="fTeilen" hidden>
+      <h2>HERAUSFORDERN</h2>
+      <p class="unterzeile" id="teilenText"></p>
+      <label class="feldname">Dein Name für den Link
+        <input type="text" id="nameFeld" maxlength="12" autocomplete="off" placeholder="zum Beispiel Sam">
+      </label>
+      <p class="klein">Dein Name, deine Punkte und dein Level stehen im Link. Mehr nicht, und du entscheidest, wem du ihn schickst.</p>
+      <p id="teilenStatus" role="status"></p>
+      <input type="text" id="linkFeld" readonly hidden aria-label="Dein Link zum Kopieren">
+      <div class="knoepfe">
+        <button class="btn main" id="teilenKnopf" type="button">Link teilen</button>
+        <button class="btn" id="teilenZurueck" type="button">Zurück</button>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div id="keinBild" hidden><p id="keinBildText">Dein Gerät oder Browser kann leider kein 3D anzeigen. Probier einen aktuellen Browser oder schalte die Hardware-Beschleunigung ein.</p></div>
+
+<!-- three.js r170 (Copyright 2010-2024 three.js authors, MIT-Lizenz): zeichnet das 3D-Bild. Auch das steckt in dieser Datei, damit alles offline läuft. -->
+<script>%%THREE%%</script>
+<script>
+%%SPIEL%%
+</script>
+</body>
+</html>

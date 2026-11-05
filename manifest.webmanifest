@@ -1,0 +1,17 @@
+{
+  "name": "Hafenflitzer",
+  "short_name": "Hafenflitzer",
+  "description": "Möwe Gisela hat dein Fischbrötchen geklaut! Renn ihr in 3D hinterher: 30 Level, 5 Welten, 11 verrückte Figuren.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#14151a",
+  "theme_color": "#14151a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
