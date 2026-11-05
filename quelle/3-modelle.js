@@ -442,14 +442,17 @@ const HILFE_FORM = {
     b.zyl(0.115, 0.115, 0.16, -0.3, -0.28, 0, 0xe8ecf2, { seg: 10 });
     b.zyl(0.115, 0.115, 0.16, 0.3, -0.28, 0, 0xe8ecf2, { seg: 10 });
   }),
-  ente: () => bau(b => {
-    b.rund(0.28, 0, -0.02, 0.05, 0xffdc2a, { s: [1, 0.85, 1.2] });
-    b.rund(0.2, 0, 0.26, -0.15, 0xffdc2a);
-    b.rund(0.1, 0, 0.23, -0.34, 0xff8a1a, { s: [1.2, 0.45, 1] });
-    b.rund(0.05, -0.09, 0.32, -0.3, 0x17151c, { seg: 6, seg2: 4 });
-    b.rund(0.05, 0.09, 0.32, -0.3, 0x17151c, { seg: 6, seg2: 4 });
-    b.zyl(0.1, 0.13, 0.42, 0, -0.2, 0.2, 0xe8ecf2, { rx: Math.PI / 2 + 0.3, seg: 10 });
-    b.kegel(0.11, 0.2, 0, -0.14, -0.06, 0xf0382e, { rx: -1.3, seg: 10 });
+  wanne: () => bau(b => {
+    b.rund(0.4, 0, 0, 0, [0xd8e4ec, 0xffffff], { s: [0.8, 0.5, 1.2] });
+    b.rund(0.31, 0, 0.13, 0, 0x4ab8e8, { s: [0.8, 0.12, 1.2] });
+    for (const [x, z] of [[-0.2, -0.3], [0.2, -0.3], [-0.2, 0.3], [0.2, 0.3]]) b.rund(0.05, x, -0.2, z, 0xf2c21a, { seg: 6, seg2: 4 });
+    for (const sx of [-1, 1]) b.rund(0.22, sx * 0.45, 0.2, 0.05, 0xffffff, { s: [1, 0.22, 0.55], rz: sx * 0.5, seg: 8, seg2: 6 });
+  }),
+  federn: () => bau(b => {
+    for (const [rz, f] of [[-0.45, 0xffffff], [0, 0xbcd4ff], [0.45, 0xffffff]]) {
+      b.rund(0.32, Math.sin(rz) * -0.2, Math.cos(rz) * 0.15, 0, f, { s: [0.32, 1, 0.14], rz, seg: 8, seg2: 8 });
+      b.box(0.02, 0.5, 0.02, Math.sin(rz) * -0.2, Math.cos(rz) * 0.1 - 0.15, 0.04, 0x7c8694, { rz });
+    }
   }),
   stiefel: () => bau(b => {
     b.weich(0.26, 0.42, 0.26, 0, 0.1, 0, [0x28b84a, 0x5fe06a]);
@@ -514,44 +517,77 @@ function niedrigBasis(b, f1 = 0xffc812, f2 = 0x17171c) {
   b.box(0.08, 1.05, 0.08, 1.12, 0.52, 0.5, f2);
 }
 function hochBasis(b, pfosten, f1 = 0xf03a2e, f2 = 0xf8f4ec) {
-  b.box(0.16, 3.2, 0.16, -1.1, 1.6, 0, pfosten);
-  b.box(0.16, 3.2, 0.16, 1.1, 1.6, 0, pfosten);
-  streifen(b, 2.4, 0.42, 0, 1.46, 0, f1, f2, 7, 0.2);
+  // Eine Wimpelleine zwischen zwei Masten: Unten bleibt Platz zum Durchrutschen
+  for (const x of [-1.15, 1.15]) {
+    b.zyl(0.09, 0.12, 3.3, x, 1.65, 0, pfosten, { seg: 8 });
+    b.rund(0.15, x, 3.35, 0, f1, { seg: 8, seg2: 6 });
+  }
+  b.box(2.4, 0.06, 0.06, 0, 2.02, 0, 0x2a2a30);
+  for (let i = 0; i < 6; i++) {
+    b.kegel(0.21, 0.78, -1 + i * 0.4, 1.6, 0, i % 2 ? f2 : f1, { seg: 3, rx: Math.PI, s: [1, 1, 0.25] });
+  }
 }
 
+// Das Podest: ein Block aus Steinen mit breiter Rampe, keine Kiste und kein Wagen.
+// Nebeneinander stehende Podeste wachsen zu einer einzigen Fläche zusammen.
 function baueContainer(lang, rampe, farbe, dunkel, stil) {
   return bau(b => {
     const start = rampe || 0;
     const koerper = lang - start;
-    // Der Container
-    b.box(2.34, DACH_HOCH - 0.05, koerper, 0, (DACH_HOCH - 0.05) / 2, -start - koerper / 2, [dunkel, farbe]);
-    const rippen = Math.floor(koerper / 1.1);
-    for (let i = 0; i <= rippen; i++) {
-      const z = -start - (i + 0.5) * (koerper / (rippen + 1));
-      b.box(2.4, DACH_HOCH - 0.3, 0.2, 0, DACH_HOCH / 2, z, dunkel);
+    const breit = 2.52;
+    b.box(breit, DACH_HOCH - 0.1, koerper, 0, (DACH_HOCH - 0.1) / 2, -start - koerper / 2, [dunkel, farbe]);
+    // Unregelmäßige Steine an den Seiten und vorne
+    const z = wuerfel(Math.round(lang * 13 + start * 7 + farbe));
+    const steine = [farbe, dunkel, stil.stein || farbe];
+    for (let reihe = 0; reihe < 3; reihe++) {
+      const y = 0.45 + reihe * 0.8;
+      for (const seite of [-1, 1]) {
+        for (let w = -start - z.von(0.3, 1.2); w > -lang + 0.6; w -= z.von(1.5, 2.6)) {
+          b.box(0.06, z.von(0.5, 0.68), z.von(1, 1.6), seite * (breit / 2 + 0.02), y, w, steine[Math.floor(z() * 3)]);
+        }
+      }
+      for (let x = -0.85 + (reihe % 2) * 0.35; x < 1.1; x += 0.85) {
+        b.box(z.von(0.62, 0.78), z.von(0.5, 0.68), 0.06, x, y, -start + 0.02, steine[Math.floor(z() * 3)]);
+      }
     }
-    b.box(2.4, 0.08, koerper, 0, DACH_HOCH - 0.02, -start - koerper / 2, farbe);
-    // Vorderseite mit Türen und Griffen
-    b.box(2.36, DACH_HOCH - 0.1, 0.08, 0, DACH_HOCH / 2 - 0.02, -start + 0.02, stil.front || dunkel);
-    b.box(0.05, DACH_HOCH - 0.3, 0.1, 0, DACH_HOCH / 2, -start + 0.04, 0x1c1c22);
-    for (const x of [-0.8, -0.32, 0.32, 0.8]) b.box(0.05, DACH_HOCH - 0.4, 0.1, x, DACH_HOCH / 2, -start + 0.05, 0xd8dce0);
-    if (stil.schrift) { b.box(1.5, 0.34, 0.1, 0, DACH_HOCH * 0.74, -start + 0.07, stil.schrift); }
+    // Die begehbare Oberseite steht etwas über
+    b.weich(breit + 0.1, 0.24, koerper + 0.1, 0, DACH_HOCH - 0.12, -start - koerper / 2, stil.oben || farbe, { r: 0.06 });
+    if (stil.rand) for (const seite of [-1, 1]) b.box(0.08, 0.06, koerper, seite * (breit / 2 - 0.05), DACH_HOCH + 0.02, -start - koerper / 2, stil.rand);
     if (rampe) {
       const laenge = Math.hypot(rampe, DACH_HOCH);
       const winkel = Math.atan2(DACH_HOCH, rampe);
-      b.box(2.3, 0.14, laenge, 0, DACH_HOCH / 2 - 0.05, -rampe / 2, stil.rampe || [0x9a6a30, 0xc8904a], { rx: winkel });
-      for (const x of [-1.15, 1.15]) b.box(0.14, 0.26, laenge, x, DACH_HOCH / 2 - 0.02, -rampe / 2, stil.rand || 0x6a4a22, { rx: winkel });
-      // Stützen und ein Pfeil, der zeigt: Hier geht es hoch
-      for (const u of [0.35, 0.7]) { b.box(0.14, DACH_HOCH * u, 0.14, -1.1, DACH_HOCH * u / 2, -rampe * u, 0x5a3e1c); b.box(0.14, DACH_HOCH * u, 0.14, 1.1, DACH_HOCH * u / 2, -rampe * u, 0x5a3e1c); }
-      for (let i = 0; i < 2; i++) {
-        const u = 0.34 + i * 0.32;
-        const y = DACH_HOCH * u + 0.14, z = -rampe * u;
-        b.box(0.28, 0.03, 0.8, 0, y, z, 0xfff6c8, { rx: winkel });
-        b.box(0.28, 0.03, 0.56, -0.2, y + 0.11, z - 0.34, 0xfff6c8, { ry: -0.7, rx: winkel });
-        b.box(0.28, 0.03, 0.56, 0.2, y + 0.11, z - 0.34, 0xfff6c8, { ry: 0.7, rx: winkel });
+      b.box(breit, 0.14, laenge, 0, DACH_HOCH / 2 - 0.07, -rampe / 2, stil.rampe || [0xb08a58, 0xd8b078], { rx: winkel });
+      // Unter der Rampe ist alles voll: Wie ein Keil aus Steinen
+      const stufen = 7;
+      for (let i = 0; i < stufen; i++) {
+        const u = (i + 0.5) / stufen;
+        const h = DACH_HOCH * u - 0.1;
+        if (h > 0.05) b.box(breit - 0.04, h, rampe / stufen + 0.01, 0, h / 2, -rampe * u, [dunkel, steine[i % 3]]);
+      }
+      if (stil.rand) for (const seite of [-1, 1]) b.box(0.1, 0.07, laenge, seite * (breit / 2 - 0.05), DACH_HOCH / 2 + 0.03, -rampe / 2, stil.rand, { rx: winkel });
+      // Leuchtende Pfeile zeigen: Hier geht es hoch
+      for (let i = 0; i < 3; i++) {
+        const u = 0.22 + i * 0.28;
+        const y = DACH_HOCH * u + 0.03, w = -rampe * u;
+        b.box(0.26, 0.03, 0.72, -0.25, y, w, stil.pfeil || 0xfff6c8, { ry: -0.75, rx: winkel });
+        b.box(0.26, 0.03, 0.72, 0.25, y, w, stil.pfeil || 0xfff6c8, { ry: 0.75, rx: winkel });
       }
     }
   });
+}
+
+// Der Weg ist eine breite Fläche ohne Schienen. Nur kleine Punkte deuten die drei Spuren an.
+function wegPunkte(b, farbe, r = 0.13, abstand = 3) {
+  for (let z = -15 + abstand / 2; z < 15; z += abstand) {
+    for (const x of [-SPUR / 2, SPUR / 2]) b.zyl(r, r, 0.04, x, 0.03, z, farbe, { seg: 8 });
+  }
+}
+function pflaster(b, x0, x1, farben, anzahl, startwert, groesse = 1) {
+  const z = wuerfel(startwert);
+  for (let i = 0; i < anzahl; i++) {
+    // Einfache Quader: Sie liegen flach am Boden, runde Kanten würde man nicht sehen, das Handy aber schon
+    b.box(z.von(0.45, 0.95) * groesse, 0.05, z.von(0.35, 0.75) * groesse, z.von(x0, x1), 0.015, z.von(-14.6, 14.6), farben[i % farben.length], { ry: z.von(-0.3, 0.3) });
+  }
 }
 
 const WELT_BAU = [
@@ -568,21 +604,16 @@ const WELT_BAU = [
       for (let i = -9; i < 10; i++) b.box(18 + (i * 7 % 13 + 13) % 13, 14 + (i * 13 % 21 + 21) % 21, 4, i * 26, 8, -318, [0xd89a8e, 0xe8b09a]);
     },
     boden: b => {
-      // Links das Hafenbecken, in der Mitte der Kai, rechts das Lagergelände
+      // Links das Hafenbecken, rechts das Lagergelände, dazwischen ein breiter Kai aus Kopfsteinpflaster
       b.platte(-90, -8.4, -0.5, 15, -15, [0x2e8fb5, 0x2e8fb5]);
       for (let i = 0; i < 6; i++) b.box(5 + i % 3 * 3, 0.01, 0.24, -14 - i * 7, -0.44, 11 - i * 5, 0x9fe0ea);
-      b.platte(-8.4, 90, -0.02, 15, -15, 0xb4a698);
+      b.platte(-8.4, 90, -0.02, 15, -15, 0xa89a8a);
       b.box(0.5, 0.9, 30, -8.3, -0.3, 0, 0x6e5a4a);
       for (let z = -13; z <= 13; z += 5) b.zyl(0.28, 0.3, 1.2, -8.45, 0.05, z, 0x4e3b2a, { seg: 8 });
-      // Drei Holzstege als Spuren
-      for (const x of SPUR_X) {
-        b.platte(x - 1.1, x + 1.1, 0, 15, -15, 0xc29a68);
-        for (let z = -14.4; z < 15; z += 1.2) b.box(2.2, 0.04, 0.05, x, 0.015, z, 0x8a6a42);
-        b.box(0.08, 0.05, 30, x - 1.1, 0.02, 0, 0x6e5230);
-        b.box(0.08, 0.05, 30, x + 1.1, 0.02, 0, 0x6e5230);
-      }
-      for (let z = -12; z < 15; z += 6) for (const x of [-SPUR / 2, SPUR / 2]) b.box(0.14, 0.03, 2.4, x, 0.02, z, 0xf8f0d8);
-      b.platte(8.3, 90, 0, 15, -15, 0x9a8c7e);
+      b.platte(-4.2, 4.2, 0, 15, -15, 0xc9bba4);
+      pflaster(b, -4, 4, [0xb6a890, 0xd8cab2, 0xbfb199, 0xa89a84], 120, 11);
+      for (const sx of [-1, 1]) b.box(0.26, 0.12, 30, sx * 4.25, 0.03, 0, 0x7e7264);
+      wegPunkte(b, 0xf2ece0);
     },
     deko: [
       { seite: 1, x: 12.5, schritt: [13, 20], formen: [
@@ -610,13 +641,16 @@ const WELT_BAU = [
           b.box(0.1, 6, 0.1, -10, 15, 0, 0x2a2a30);
           b.box(3, 1.4, 1.6, -10, 11.6, 0, 0x2f7ad0);
         },
-        b => { // Containerstapel
-          const fs = [0xd84e3a, 0x2f7ad0, 0x3ab07a, 0xf2b22e, 0x8a58c8];
-          for (let i = 0; i < 3; i++) for (let j = 0; j < 3 - (i % 2); j++) {
-            const f = fs[(i * 3 + j * 2) % fs.length];
-            b.box(4.6, 2.5, 8, 3 + i * 4.8, 1.25 + j * 2.5, 0, [f, f]);
-            b.box(0.1, 2.3, 7.8, 0.68 + i * 4.8, 1.25 + j * 2.5, 0, f === 0xd84e3a ? 0xb83a2a : 0x1c1c22);
+        b => { // Fässer-Pyramide und Fischernetz
+          for (let reihe = 0; reihe < 3; reihe++) for (let i = 0; i < 4 - reihe; i++) {
+            b.zyl(0.8, 0.8, 2.2, 2.4 + reihe * 0.85 + i * 1.7, 0.8 + reihe * 1.4, 0, [0x7a5228, 0xa87a42], { rx: Math.PI / 2, seg: 12 });
+            b.ring(0.8, 0.05, 2.4 + reihe * 0.85 + i * 1.7, 0.8 + reihe * 1.4, 0.7, 0x2a2a2e, { seg: 5, seg2: 14 });
+            b.ring(0.8, 0.05, 2.4 + reihe * 0.85 + i * 1.7, 0.8 + reihe * 1.4, -0.7, 0x2a2a2e, { seg: 5, seg2: 14 });
           }
+          b.box(0.14, 5, 0.14, 0.7, 2.5, 2, 0x6e4a26);
+          b.box(0.14, 5, 0.14, 0.7, 2.5, 5.5, 0x6e4a26);
+          for (let y = 1.4; y < 5; y += 0.5) b.box(0.03, 0.03, 3.5, 0.7, y, 3.75, 0xe8dcb8);
+          for (let w = 2.2; w < 5.5; w += 0.5) b.box(0.03, 3.6, 0.03, 0.7, 3.2, w, 0xe8dcb8);
         },
         b => { // Laterne und Poller
           b.zyl(0.1, 0.14, 5.4, 0, 2.7, 0, 0x26303a, { seg: 8 });
@@ -662,33 +696,13 @@ const WELT_BAU = [
         kisteForm(b, 0, 0, 0, 1.9, 0xc98f4e, 0x8e5e2a);
         kisteForm(b, 0.1, 1.9, 0.1, 1.5, 0x7d9fbc, 0x466a88);
       },
-      M: b => { // Gabelstapler, kommt von vorne, schaut also nach +z
-        b.weich(2, 0.8, 3, 0, 0.82, 0, [0xd89418, 0xfcc32a], { r: 0.15 });
-        b.box(1.8, 0.12, 1.8, 0, 2.3, -0.2, 0x26262e);
-        for (const [x, z] of [[-0.82, -1], [0.82, -1], [-0.82, 0.6], [0.82, 0.6]]) b.box(0.1, 1.5, 0.1, x, 1.6, z, 0x26262e);
-        for (const [x, z] of [[-1, 1.05], [1, 1.05], [-1, -1], [1, -1]]) b.zyl(0.42, 0.42, 0.3, x, 0.42, z, 0x1c1c22, { rz: Math.PI / 2, seg: 12 });
-        // Fahrerin: Eine Robbe mit Warnweste, die nicht aufpasst
-        b.rund(0.4, 0, 1.55, 0.1, 0x8a96a8, { s: [1, 1.1, 1] });
-        b.rund(0.08, -0.15, 1.72, 0.45, 0x121216, { seg: 6, seg2: 4 });
-        b.rund(0.08, 0.15, 1.72, 0.45, 0x121216, { seg: 6, seg2: 4 });
-        b.rund(0.1, 0, 1.58, 0.48, 0x1c1c22, { seg: 6, seg2: 4 });
-        b.box(0.1, 2.5, 0.2, -0.7, 1.3, 1.65, 0x4a5563);
-        b.box(0.1, 2.5, 0.2, 0.7, 1.3, 1.65, 0x4a5563);
-        b.box(0.22, 0.1, 1.5, -0.55, 0.5, 2.3, 0xd8dce0);
-        b.box(0.22, 0.1, 1.5, 0.55, 0.5, 2.3, 0xd8dce0);
-        kisteForm(b, 0, 0.56, 2.3, 1.3);
-        b.rund(0.14, -0.82, 1, 1.56, 0xfff4a8, { seg: 8, seg2: 6 });
-        b.rund(0.14, 0.82, 1, 1.56, 0xfff4a8, { seg: 8, seg2: 6 });
-      },
       fall: { // Gisela wirft Stiefel
         wurf: b => { b.weich(0.6, 1, 0.6, 0, 0.5, 0, [0x24303c, 0x3c4e60]); b.weich(0.66, 0.34, 1.1, 0, 0.17, -0.25, 0x24303c); }
       }
     },
     container: [
-      { farbe: 0xe2513a, dunkel: 0xb03a28, schrift: 0xf4f0e6 },
-      { farbe: 0x2f7ad0, dunkel: 0x1f5aa0, schrift: 0xf4f0e6 },
-      { farbe: 0x33b078, dunkel: 0x23865a, schrift: 0xffe45a },
-      { farbe: 0xf2a52e, dunkel: 0xc47f1a, schrift: 0x26262e }
+      { farbe: 0xb0a896, dunkel: 0x726c60, stein: 0x938b7c, oben: 0xc29a68, rampe: [0xa8824e, 0xd0a870] },
+      { farbe: 0x9aa6a8, dunkel: 0x626c70, stein: 0x7f8c90, oben: 0xb08a58, rampe: [0xa8824e, 0xd0a870] }
     ],
     wasser: 0x9fe0ea
   },
@@ -707,15 +721,23 @@ const WELT_BAU = [
       b.platte(-95, -22, -0.5, 15, -15, 0x1fb5d0);
       b.platte(-30, -12, -0.45, 15, -15, 0x57d4dc);
       for (let i = 0; i < 6; i++) b.box(7, 0.01, 0.3, -30 - i * 7, -0.42, 11 - i * 5, 0xf0fbfa);
-      b.platte(-22, 95, -0.12, 15, -15, 0xf6dfa4);
+      b.platte(-22, 95, -0.12, 15, -15, 0xf0d898);
       for (let i = 0; i < 9; i++) b.rund(0.8, -19 + i * 5, -0.1, -13 + (i * 11) % 28, 0xe8cc88, { s: [1.3, 0.14, 1], seg: 8, seg2: 5 });
-      // Bunte Holzpromenade als Spuren
-      const farben = [0xf5a9a0, 0xfbe08a, 0x9fdcc8];
-      SPUR_X.forEach((x, i) => {
-        b.platte(x - 1.15, x + 1.15, 0, 15, -15, farben[i]);
-        for (let z = -14.4; z < 15; z += 1) b.box(2.3, 0.04, 0.06, x, 0.015, z, 0xfafafa);
-      });
-      b.box(8, 0.12, 30, 0, -0.05, 0, 0xd8bf90);
+      // Ein Weg aus festem, hellem Sand mit Muscheln und Fußspuren
+      b.platte(-4.2, 4.2, 0, 15, -15, 0xf6e2b4);
+      pflaster(b, -4, 4, [0xecd6a2, 0xfbeac0], 46, 22, 1.5);
+      const z = wuerfel(33);
+      for (let i = 0; i < 14; i++) {
+        const x = z.von(-3.8, 3.8), w = z.von(-14, 14);
+        b.rund(0.14, x, 0.03, w, [0xf08aa0, 0x5ad0d8, 0xffc070][i % 3], { s: [1, 0.3, 0.8], seg: 8, seg2: 5 });
+      }
+      for (let i = 0; i < 6; i++) {
+        const x = z.von(-3.5, 3.5), w = z.von(-13, 13);
+        b.rund(0.14, x, 0.02, w, 0xdcc48e, { s: [0.7, 0.1, 1.2], seg: 8, seg2: 4 });
+        b.rund(0.14, x + 0.3, 0.02, w - 0.7, 0xdcc48e, { s: [0.7, 0.1, 1.2], seg: 8, seg2: 4 });
+      }
+      for (const sx of [-1, 1]) for (let w = -13; w < 15; w += 4) { b.zyl(0.07, 0.09, 0.8, sx * 4.4, 0.4, w, 0xa87a48, { seg: 6 }); b.box(0.04, 0.04, 4, sx * 4.4, 0.72, w + 2, 0xf4efe0); }
+      wegPunkte(b, 0xf0589a, 0.12);
     },
     deko: [
       { seite: 1, x: 9.5, schritt: [8, 13], formen: [
@@ -811,23 +833,11 @@ const WELT_BAU = [
         b.rund(0.62, 0.1, 3.25, -0.05, 0xfff2c8, { seg: 12, seg2: 8 });
         b.rund(0.18, 0.15, 3.82, -0.1, 0xe02a3a, { seg: 8, seg2: 6 });
       },
-      M: b => { // Strandbuggy mit Krebsen
-        b.weich(2.1, 0.9, 3.7, 0, 0.95, 0, [0xd82a7a, 0xff6ab0], { r: 0.24 });
-        for (const [x, z] of [[-1, 1.3], [1, 1.3], [-1, -1.3], [1, -1.3]]) b.zyl(0.5, 0.5, 0.4, x, 0.5, z, 0x1c1c22, { rz: Math.PI / 2, seg: 12 });
-        b.rund(0.3, -0.42, 1.9, 0.3, 0xf4cdb0);
-        b.box(0.6, 0.18, 0.1, -0.42, 2, 0.58, 0x121218);
-        b.rund(0.3, 0.42, 1.9, 0.3, 0xe0432a);
-        for (const x of [-1, 1]) b.box(0.08, 1.4, 0.08, x * 0.9, 2.2, 1.2, 0xf4f4f8);
-        b.box(2, 0.1, 3.2, 0, 2.9, 0, 0xffd21f);
-        b.rund(0.14, -0.7, 1.1, 1.85, 0xfff4a8, { seg: 8, seg2: 6 });
-        b.rund(0.14, 0.7, 1.1, 1.85, 0xfff4a8, { seg: 8, seg2: 6 });
-      },
       fall: { wurf: b => { b.rund(0.55, 0, 0.5, 0, 0x8a5a26, { seg: 10, seg2: 7 }); b.box(0.7, 0.06, 0.7, 0, 0.8, 0, 0x2aa84a); } }
     },
     container: [
-      { farbe: 0x38c8d8, dunkel: 0x1f9aa8, schrift: 0xffffff, rampe: [0xe8bc78, 0xf8d898] },
-      { farbe: 0xf4a02e, dunkel: 0xc4781a, schrift: 0xffffff, rampe: [0xe8bc78, 0xf8d898] },
-      { farbe: 0xf0589a, dunkel: 0xc03c78, schrift: 0xffffff, rampe: [0xe8bc78, 0xf8d898] }
+      { farbe: 0xf0d69a, dunkel: 0xc8a564, stein: 0xe0c07e, oben: 0x62d8d0, rampe: [0xc8a060, 0xf0d090] },
+      { farbe: 0xf0d69a, dunkel: 0xc8a564, stein: 0xe0c07e, oben: 0xf88ba0, rampe: [0xc8a060, 0xf0d090] }
     ],
     wasser: 0xf0fbfa
   },
@@ -847,14 +857,11 @@ const WELT_BAU = [
     boden: b => {
       b.platte(-90, 90, -0.02, 15, -15, 0x352b5c);
       for (let i = 0; i < 16; i++) b.weich(1.2, 0.05, 0.8, ((i * 37) % 26) - 13 + (i % 2 ? 11 : -11), 0, -14 + i * 1.9, 0x46386e, { r: 0.02 });
-      for (const x of SPUR_X) {
-        b.platte(x - 1.12, x + 1.12, 0, 15, -15, 0x5a4a88);
-        for (let z = -14; z < 15; z += 2) {
-          b.box(1, 0.04, 0.9, x - 0.55, 0.015, z, 0x6a5a9c);
-          b.box(1, 0.04, 0.9, x + 0.55, 0.015, z + 1, 0x63548e);
-        }
-      }
-      for (let z = -12; z < 15; z += 6) for (const x of [-SPUR / 2, SPUR / 2]) b.box(0.1, 0.03, 2.4, x, 0.02, z, 0x35f0e0);
+      // Ein breiter Marktplatz aus Pflastersteinen
+      b.platte(-4.2, 4.2, 0, 15, -15, 0x4c3e78);
+      pflaster(b, -4, 4, [0x63548e, 0x6e5e9e, 0x58497f, 0x756aa8], 120, 44);
+      for (const sx of [-1, 1]) b.box(0.2, 0.1, 30, sx * 4.25, 0.03, 0, 0x2c2256);
+      wegPunkte(b, 0x35f0e0, 0.14);
     },
     deko: [
       { seite: 1, x: 8.6, schritt: [10, 16], formen: [
@@ -894,15 +901,15 @@ const WELT_BAU = [
           for (let i = 0; i < 8; i++) b.rund(0.26, 0, 6.18 - Math.sin(i / 7 * Math.PI) * 0.8, -i * 1.8, [0xffc83a, 0xff5ab0, 0x35f0e0][i % 3], { seg: 8, seg2: 6 });
         },
         b => { // Marktstand Obst und Eis
-          for (const [x, z] of [[0, -2], [0, 2], [-3, -2], [-3, 2]]) b.box(0.14, 3.6, 0.14, x, 1.8, z, 0x6e4a26);
-          for (let i = 0; i < 7; i++) b.box(3.5, 0.14, 0.72, -1.5, 3.65 + i * 0.05, -2.1 + i * 0.7, i % 2 ? 0xf4f0e6 : 0xf0408a, { rz: 0.14 });
-          b.box(3, 1, 4, -1.5, 0.5, 0, 0x6e4a26);
-          for (let i = 0; i < 6; i++) b.rund(0.28, -0.8 - (i % 3) * 0.7, 1.25, -1.5 + i * 0.6, [0xf0442e, 0xffc83a, 0x53d060][i % 3], { seg: 8, seg2: 6 });
+          for (const [x, z] of [[0, -2], [0, 2], [3, -2], [3, 2]]) b.box(0.14, 3.6, 0.14, x, 1.8, z, 0x6e4a26);
+          for (let i = 0; i < 7; i++) b.box(3.5, 0.14, 0.72, 1.5, 3.65 + i * 0.05, -2.1 + i * 0.7, i % 2 ? 0xf4f0e6 : 0xf0408a, { rz: -0.14 });
+          b.box(3, 1, 4, 1.5, 0.5, 0, 0x6e4a26);
+          for (let i = 0; i < 6; i++) b.rund(0.28, 0.8 + (i % 3) * 0.7, 1.25, -1.5 + i * 0.6, [0xf0442e, 0xffc83a, 0x53d060][i % 3], { seg: 8, seg2: 6 });
         },
         b => { // Haus
-          b.box(9, 13, 9, -4.5, 6.5, 0, [0x1f1a48, 0x35286e]);
-          fenster(b, 1, 0.03, 2.4, -3, 3, 3, 3, 3.3, 0xff8ac0, 0x1c1438);
-          b.kegel(7.4, 3.8, -4.5, 15, 0, 0x1c1438, { seg: 4, ry: Math.PI / 4 });
+          b.box(9, 13, 9, 4.5, 6.5, 0, [0x1f1a48, 0x35286e]);
+          fenster(b, -1, -0.03, 2.4, -3, 3, 3, 3, 3.3, 0xff8ac0, 0x1c1438);
+          b.kegel(7.4, 3.8, 4.5, 15, 0, 0x1c1438, { seg: 4, ry: Math.PI / 4 });
         }
       ] }
     ],
@@ -923,12 +930,6 @@ const WELT_BAU = [
         b.rund(0.54, 0, 3.4, 0, 0xff5a3a, { s: [1.25, 0.72, 0.9] });
         for (const sx of [-1, 1]) { b.rund(0.18, sx * 0.25, 3.8, -0.15, 0xffffff, { seg: 8, seg2: 6 }); b.rund(0.09, sx * 0.25, 3.8, 0.0, 0x121216, { seg: 6, seg2: 4 }); }
       },
-      M: b => { // Fischkarren
-        b.weich(2.1, 1.3, 3.5, 0, 1.15, 0, [0x4a7a9c, 0x6ab0d8], { r: 0.12 });
-        for (const [x, z] of [[-1.05, 1], [1.05, 1], [-1.05, -1], [1.05, -1]]) b.zyl(0.55, 0.55, 0.14, x, 0.55, z, 0x6e4a26, { rz: Math.PI / 2, seg: 14 });
-        for (let i = 0; i < 7; i++) b.rund(0.35, -0.7 + (i % 3) * 0.7, 1.9, -1.1 + i * 0.4, i % 2 ? 0xff8a5a : 0xc4e4f4, { s: [0.5, 0.45, 1.2], seg: 8, seg2: 6 });
-        b.box(2.3, 0.3, 0.1, 0, 0.75, 1.82, 0xffc83a);
-      },
       laterne: b => { // Hängende Laterne, Unterkante bei 1.12
         b.box(0.05, 3, 0.05, 0, 4.1, 0, 0xc8c8d8);
         b.weich(1.6, 1.8, 1.6, 0, 2.05, 0, [0xff8a2a, 0xffd86a], { r: 0.4 });
@@ -939,8 +940,8 @@ const WELT_BAU = [
       fall: { wurf: b => { b.rund(0.6, 0, 0.42, 0, 0xfaf4e4, { s: [1.3, 0.7, 1.3], seg: 10, seg2: 7 }); b.rund(0.3, 0, 0.6, 0, 0xffc21a, { seg: 8, seg2: 6 }); } }
     },
     container: [
-      { farbe: 0x5a4aa8, dunkel: 0x3a2e78, schrift: 0x35f0e0, front: 0x2c2260, rampe: [0x4a3a78, 0x7a68b0], rand: 0x35f0e0 },
-      { farbe: 0xa83a8a, dunkel: 0x7a2864, schrift: 0xffc83a, front: 0x601e50, rampe: [0x4a3a78, 0x7a68b0], rand: 0xff4ab0 }
+      { farbe: 0x6a5ab0, dunkel: 0x3a2e78, stein: 0x54479a, oben: 0x8a7ad0, rampe: [0x4a3a78, 0x7a68b0], rand: 0x35f0e0 },
+      { farbe: 0x7a4aa0, dunkel: 0x48286e, stein: 0x643a8a, oben: 0xa868c8, rampe: [0x4a3a78, 0x7a68b0], rand: 0xff4ab0 }
     ],
     wasser: 0x46386e
   },
@@ -962,16 +963,18 @@ const WELT_BAU = [
         b.rund(2.6, sx * (13 + i * 3), -2.5, -13 + i * 3.7, 0x2f6e72, { s: [2, 0.2, 0.9], seg: 8, seg2: 5 });
         b.box(5, 0.03, 0.2, sx * (13 + i * 3), -2.16, -13 + i * 3.7, 0xd8ecec);
       }
-      // Das Deck mit Reling
-      b.platte(-8.3, 8.3, 0, 15, -15, 0x5e4c3c);
-      for (let x = -8; x < 8.5; x += 0.9) b.box(0.05, 0.03, 30, x, 0.015, 0, 0x4e4032);
-      for (const x of SPUR_X) { b.platte(x - 1.12, x + 1.12, 0.01, 15, -15, 0xc8a06a); for (let i = -1; i < 2; i++) b.box(0.06, 0.04, 30, x + i * 0.75, 0.02, 0, 0x6e5a42); for (let z = -12; z < 15; z += 6) b.box(2.2, 0.04, 0.08, x, 0.025, z, 0x6e5a42); }
+      // Das Deck: lange Planken in Laufrichtung, darauf nur Messingnägel als Spurhinweis
+      b.platte(-8.3, 8.3, 0, 15, -15, 0x96784f);
+      for (let x = -8; x < 8.5; x += 0.8) b.box(0.05, 0.03, 30, x, 0.015, 0, 0x5e4a30);
+      const z = wuerfel(55);
+      for (let i = 0; i < 26; i++) b.box(0.74, 0.02, z.von(1.5, 5), Math.round(z.von(-10, 10)) * 0.8 + 0.4, 0.012, z.von(-13, 13), i % 2 ? 0xa88a60 : 0x876a44);
       for (const sx of [-1, 1]) {
         b.box(0.4, 2.6, 30, sx * 8.4, -1.25, 0, 0x4a2a2a);
         b.box(0.4, 0.3, 30, sx * 8.4, 0.2, 0, 0xc8a66a);
         b.box(0.1, 0.1, 30, sx * 8.2, 1.3, 0, 0xc8a66a);
-        for (let z = -13; z < 15; z += 4) b.box(0.1, 1.3, 0.1, sx * 8.2, 0.7, z, 0xc8a66a);
+        for (let w = -13; w < 15; w += 4) b.box(0.1, 1.3, 0.1, sx * 8.2, 0.7, w, 0xc8a66a);
       }
+      wegPunkte(b, 0xe4dcc8, 0.12);
     },
     deko: [
       { seite: 1, x: 6.3, schritt: [9, 18], formen: [
@@ -994,9 +997,9 @@ const WELT_BAU = [
           b.ring(0.3, 0.1, -0.1, 0.8, 0, 0xc8a66a, { ry: Math.PI / 2, seg: 6, seg2: 14 });
         },
         b => { // Kajüte
-          b.box(2.4, 3, 7, -0.6, 1.5, 0, [0x5a3a26, 0x7d5436]);
-          for (const z of [-2, 0, 2]) { b.ring(0.45, 0.08, 0.63, 1.8, z, 0xc8a66a, { ry: Math.PI / 2, seg: 6, seg2: 14 }); b.zyl(0.4, 0.4, 0.05, 0.62, 1.8, z, 0xffe39a, { rz: Math.PI / 2, seg: 12 }); }
-          b.box(2.8, 0.25, 7.4, -0.6, 3.1, 0, 0xa58a68);
+          b.box(2.4, 3, 7, 0.6, 1.5, 0, [0x5a3a26, 0x7d5436]);
+          for (const z of [-2, 0, 2]) { b.ring(0.45, 0.08, -0.63, 1.8, z, 0xc8a66a, { ry: Math.PI / 2, seg: 6, seg2: 14 }); b.zyl(0.4, 0.4, 0.05, -0.62, 1.8, z, 0xffe39a, { rz: Math.PI / 2, seg: 12 }); }
+          b.box(2.8, 0.25, 7.4, 0.6, 3.1, 0, 0xa58a68);
         }
       ] },
       { seite: 1, x: 4.5, schritt: [55, 80], formen: [
@@ -1035,12 +1038,6 @@ const WELT_BAU = [
         b.zyl(0.6, 0.6, 0.2, -1.1, 0.6, 0.6, 0x4e3a26, { rz: Math.PI / 2 });
         b.zyl(0.6, 0.6, 0.2, 1.1, 0.6, 0.6, 0x4e3a26, { rz: Math.PI / 2 });
       },
-      M: b => { // Riesenfass, rollt auf dich zu
-        b.zyl(1.15, 1.15, 2.2, 0, 1.15, 0, [0x6e4a26, 0xa0784a], { rz: Math.PI / 2, seg: 16 });
-        for (const x of [-0.8, 0.8]) b.ring(1.17, 0.07, x, 1.15, 0, 0x26262e, { ry: Math.PI / 2, seg: 5, seg2: 18 });
-        b.zyl(0.96, 0.96, 0.05, -1.11, 1.15, 0, 0x4e3a26, { rz: Math.PI / 2, seg: 16 });
-        b.box(0.1, 0.5, 0.5, 1.13, 1.15, 0, 0xf0382e);
-      },
       welle: b => { // Eine Wand aus Wasser über alle Spuren
         for (let i = -3; i <= 3; i++) {
           const x = i * 1.25;
@@ -1059,8 +1056,8 @@ const WELT_BAU = [
       }
     },
     container: [
-      { farbe: 0x8e6a3a, dunkel: 0x5a4024, schrift: 0xe8dcb8, front: 0x4e3a26 },
-      { farbe: 0x4a6a78, dunkel: 0x2e4852, schrift: 0xf4f0e6 }
+      { farbe: 0x8e6a3a, dunkel: 0x5a4024, stein: 0x745430, oben: 0xc8a06a, rampe: [0x8e6a3a, 0xc8a06a] },
+      { farbe: 0x7a6a58, dunkel: 0x4a4034, stein: 0x625444, oben: 0xb89464, rampe: [0x8e6a3a, 0xc8a06a] }
     ],
     wasser: 0xd8ecec
   },
@@ -1087,12 +1084,10 @@ const WELT_BAU = [
         b.ring(r, 0.25, x, -0.05, z, 0xa4a2b6, { rx: Math.PI / 2, s: [1, 1, 0.5], seg: 6, seg2: 14 });
         b.rund(r * 0.9, x, -0.12, z, 0x6a687e, { s: [1, 0.06, 1], seg: 12, seg2: 4 });
       }
-      for (const x of SPUR_X) {
-        b.platte(x - 1.12, x + 1.12, 0, 15, -15, 0x3f4468);
-        for (let z = -14; z < 15; z += 3) b.box(2.2, 0.03, 0.06, x, 0.015, z, 0x5a6088);
-        b.box(0.08, 0.04, 30, x - 1.14, 0.025, 0, 0x4ae0ff);
-        b.box(0.08, 0.04, 30, x + 1.14, 0.025, 0, 0x4ae0ff);
-      }
+      // Ein festgetretener Pfad im Mondstaub mit leuchtenden Punkten
+      b.platte(-4.2, 4.2, 0, 15, -15, 0x5e5c78);
+      pflaster(b, -4, 4, [0x6e6c8a, 0x535170, 0x7a7896], 70, 66, 1.3);
+      wegPunkte(b, 0x4ae0ff, 0.15);
     },
     deko: [
       { seite: 1, x: 9, schritt: [14, 24], formen: [
@@ -1160,17 +1155,6 @@ const WELT_BAU = [
         b.ring(0.96, 0.05, 0, 1.2, 0, 0xf0382e, { rx: Math.PI / 2, seg: 6, seg2: 18 });
         b.ring(0.96, 0.05, 0, 2.2, 0, 0x4ae0ff, { rx: Math.PI / 2, seg: 6, seg2: 18 });
       },
-      M: b => { // Mond-Rover
-        b.weich(2.2, 0.8, 3.4, 0, 1.15, 0, [0xc8d0e8, 0xecf0fa], { r: 0.2 });
-        for (const [x, z] of [[-1.1, 1.3], [1.1, 1.3], [-1.1, -1.3], [1.1, -1.3], [-1.1, 0], [1.1, 0]]) b.zyl(0.6, 0.6, 0.34, x, 0.6, z, 0x1c1c2c, { rz: Math.PI / 2, seg: 12 });
-        // Kleines grünes Männchen am Steuer
-        b.rund(0.42, 0, 2, 0.4, 0x53d060);
-        for (const x of [-0.15, 0.15]) { b.rund(0.12, x, 2.1, 0.72, 0xffffff, { seg: 8, seg2: 6 }); b.rund(0.06, x, 2.1, 0.82, 0x121216, { seg: 6, seg2: 4 }); }
-        b.box(0.03, 1.4, 0.03, -0.8, 2.3, -1, 0xc8d0e8);
-        b.rund(0.1, -0.8, 3, -1, 0xff4a4a, { seg: 8, seg2: 6 });
-        b.rund(0.15, -0.7, 1.25, 1.72, 0x4ae0ff, { seg: 8, seg2: 6 });
-        b.rund(0.15, 0.7, 1.25, 1.72, 0x4ae0ff, { seg: 8, seg2: 6 });
-      },
       fall: {
         meteor: b => {
           b.rund(0.82, 0, 0.42, 0, [0x4a3a3a, 0x7a5a4a], { seg: 8, seg2: 5, s: [1.1, 0.62, 1.1] });
@@ -1181,15 +1165,40 @@ const WELT_BAU = [
       }
     },
     container: [
-      { farbe: 0xc8d0e8, dunkel: 0x8a96b0, schrift: 0xf0382e, rampe: [0x4e5a78, 0x8a96c0], rand: 0x4ae0ff },
-      { farbe: 0x7a6ae0, dunkel: 0x5448a8, schrift: 0x4ae0ff, rampe: [0x4e5a78, 0x8a96c0], rand: 0x4ae0ff }
+      { farbe: 0xa8a6ba, dunkel: 0x68667c, stein: 0x8a889e, oben: 0x4e5a78, rampe: [0x4e5a78, 0x8a96c0], rand: 0x4ae0ff, pfeil: 0x8af0ff },
+      { farbe: 0x9c98c0, dunkel: 0x5e5a84, stein: 0x7c78a4, oben: 0x4e5a78, rampe: [0x4e5a78, 0x8a96c0], rand: 0x4ae0ff, pfeil: 0x8af0ff }
     ],
     wasser: 0xa4a2b6
   }
 ];
 
 // Sachen, die in mehreren Welten gleich sind
+const KUGEL_FARBEN = [[0x7a746a, 0xb0a898], [0xb8945c, 0xe4c88c], [0x54488a, 0x8a7cc0], [0x4e5e4a, 0x8a9a78], [0x6a6880, 0xb4b2c8]];
+const KUGEL_R = 1.3;
+
 const GEMEINSAM = {
+  kugel: w => bau(b => { // Die große Steinkugel rollt auf dich zu. Sie ist schlecht gelaunt.
+    const [dunkel, hell] = KUGEL_FARBEN[w];
+    b.rund(KUGEL_R, 0, 0, 0, [dunkel, hell], { seg: 18, seg2: 12 });
+    // Rillen rundherum, damit man das Rollen gut sieht
+    for (const [rx, ry] of [[0, Math.PI / 2], [0, Math.PI / 2 + 1.05], [0, Math.PI / 2 - 1.05]]) b.ring(KUGEL_R - 0.01, 0.05, 0, 0, 0, dunkel, { rx, ry, seg: 5, seg2: 26 });
+    const z = wuerfel(77 + w);
+    for (let i = 0; i < 10; i++) {
+      const u = z.von(0, Math.PI * 2), v = z.von(-1.2, 1.2);
+      const x = Math.cos(u) * Math.cos(v), y = Math.sin(v), t = Math.sin(u) * Math.cos(v);
+      b.rund(z.von(0.18, 0.34), x * KUGEL_R, y * KUGEL_R, t * KUGEL_R, i % 2 ? dunkel : hell, { seg: 7, seg2: 5, s: [1, 1, 1] });
+    }
+    // Ein böses Gesicht, zweimal, damit es beim Rollen immer wieder auftaucht
+    for (const seite of [1, -1]) {
+      const v = seite * 1.26;
+      for (const sx of [-1, 1]) {
+        b.rund(0.17, sx * 0.42, 0.22 * seite, v - seite * 0.1, 0x201c20, { seg: 8, seg2: 6 });
+        b.box(0.5, 0.11, 0.14, sx * 0.42, 0.5 * seite, v - seite * 0.14, 0x201c20, { rz: sx * -0.4 * seite });
+      }
+      b.box(0.8, 0.14, 0.14, 0, -0.42 * seite, v - seite * 0.08, 0x201c20);
+      for (let i = -1; i <= 1; i++) b.box(0.16, 0.13, 0.14, i * 0.26, -0.33 * seite, v - seite * 0.03, 0xe8e4d8);
+    }
+  }),
   B: () => bau(b => { // Wasserball
     const f = [0xf0382e, 0xffffff, 0xffd21f, 0xffffff, 0x2f7ad0, 0xffffff];
     for (let i = 0; i < 6; i++) b.setze(new THREE.SphereGeometry(0.6, 8, 12, i / 6 * Math.PI * 2, Math.PI * 2 / 6), f[i], 0, 0, 0);
@@ -1224,6 +1233,7 @@ function formFuerRegel(art) {
   if (art === 'J') return bau(WELT_BAU[0].hindernis.J);
   if (art === 'S') return bau(WELT_BAU[0].hindernis.S);
   if (art === 'W') return bau(WELT_BAU[0].hindernis.W);
-  if (art === 'C') { const g = baueContainer(14, 7, 0xe2513a, 0xb03a28, { schrift: 0xf4f0e6 }); g.translate(0, 0, 7); return g; }
+  if (art === 'M') return GEMEINSAM.kugel(0);
+  if (art === 'C') { const stil = WELT_BAU[0].container[0]; const g = baueContainer(14, 7, stil.farbe, stil.dunkel, stil); g.translate(0, 0, 7); return g; }
   return null;
 }

@@ -40,11 +40,12 @@ const ton = {
   autsch() { this.piep(240, 0.3, 0.09, 'sawtooth', 0, 55); this.piep(110, 0.24, 0.06, 'square', 0.02, 45); },
   rettung() { [392, 523, 392].forEach((f, i) => this.piep(f, 0.1, 0.05, 'square', i * 0.07)); },
   hilfe() { [523, 659, 784, 1047].forEach((f, i) => this.piep(f, 0.09, 0.04, 'square', i * 0.06)); },
-  rakete() { this.piep(180, 1, 0.05, 'sawtooth', 0, 900); },
+  wanne() { [392, 494, 587, 784].forEach((f, i) => this.piep(f, 0.12, 0.04, 'triangle', i * 0.07)); this.piep(600, 0.5, 0.02, 'sine', 0.1, 1200); },
+  haken() { this.piep(1200, 0.1, 0.03, 'square', 0, 500); this.piep(240, 0.14, 0.03, 'triangle', 0.06); },
+  rumpel() { this.piep(70, 1.2, 0.1, 'sawtooth', 0, 46); this.piep(95, 0.9, 0.05, 'square', 0.1, 60); },
   kette(n) { const f = 523 * Math.pow(2, n / 12); this.piep(f, 0.09, 0.04, 'square'); this.piep(f * 1.5, 0.14, 0.04, 'square', 0.08); },
   boing() { this.piep(200, 0.35, 0.05, 'sine', 0, 980); },
   flutsch() { this.piep(800, 0.22, 0.035, 'sine', 0, 180); },
-  hupe() { this.piep(330, 0.14, 0.04, 'square'); this.piep(262, 0.26, 0.04, 'square', 0.16); },
   donner() { this.piep(1800, 0.05, 0.05, 'sawtooth', 0, 200); this.piep(80, 0.5, 0.09, 'sawtooth', 0.02, 36); },
   rumms() { this.piep(150, 0.2, 0.07, 'square', 0, 50); },
   fanfare() { [659, 784, 1047, 1319].forEach((f, i) => this.piep(f, 0.12, 0.05, 'square', i * 0.08)); },
@@ -144,8 +145,8 @@ const LEHRE = {
   J: ['Gelb-schwarz: Wisch nach OBEN und spring drüber!', 'Gelb-schwarz: PFEIL HOCH und drüberspringen!'],
   S: ['Rot-weiß: Wisch nach UNTEN und rutsch drunter durch!', 'Rot-weiß: PFEIL RUNTER und drunter durchrutschen!'],
   W: ['Alles andere: Wisch zur SEITE und weich aus!', 'Alles andere: PFEIL LINKS oder RECHTS und ausweichen!'],
-  C: ['Über die Rampe aufs Dach!', 'Über die Rampe aufs Dach!'],
-  M: ['Das kommt dir entgegen. WEG DA!', 'Das kommt dir entgegen. WEG DA!'],
+  C: ['Über die Rampe aufs Podest!', 'Über die Rampe aufs Podest!'],
+  M: ['Eine Steinkugel rollt auf dich zu. WEG DA!', 'Eine Steinkugel rollt auf dich zu. WEG DA!'],
   F: ['Roter Ring: Dort landet gleich etwas!', 'Roter Ring: Dort landet gleich etwas!'],
   B: ['Der Ball kullert in deine Bahn!', 'Der Ball kullert in deine Bahn!'],
   L: ['Laterne schwingt. Rutsch drunter durch!', 'Laterne schwingt. Rutsch drunter durch!'],
@@ -207,7 +208,7 @@ function zeigeHud() {
 
 function zeigeHilfenLeiste() {
   const st = s;
-  const eintraege = [['magnet', st.magnet], ['ente', st.flug], ['stiefel', st.stiefel], ['goldfisch', st.goldfisch]];
+  const eintraege = [['magnet', st.magnet], ['wanne', st.flug], ['stiefel', st.stiefel], ['federn', st.federn], ['goldfisch', st.goldfisch]];
   const leiste = $('hilfenLeiste');
   const html = eintraege.filter(e => e[1] > 0).map(([art, rest]) => {
     const voll = hilfeDauer(art);
@@ -452,7 +453,10 @@ function baueFiguren() {
     const kann = document.createElement('em');
     kann.textContent = istFrei ? def.kann : (def.sterne ? 'Eine geheime Figur. Wer sie wohl ist?' : '???');
     k.setAttribute('aria-label', def.name + (istFrei ? '' : ', noch gesperrt'));
-    k.append(bild, titel, info, kann);
+    const sprung = document.createElement('em');
+    sprung.className = 'sprungZeile';
+    if (istFrei) { const fett = document.createElement('strong'); fett.textContent = def.sprungName + ': '; sprung.append(fett, def.sprungText); }
+    k.append(bild, titel, info, kann, sprung);
     k.addEventListener('click', () => {
       daten.figur = name;
       speichere();
@@ -584,9 +588,10 @@ function baueHilfe() {
   const regel = $('legendeRegel');
   const eintraege = [
     ['J', 'Gelb-schwarz: drüberspringen', 4.7, 1.5, 0.4],
-    ['S', 'Rot-weiß: drunter durchrutschen', 6.2, 1.2, 1.5],
+    ['S', 'Rot-weiße Wimpel: drunter durchrutschen', 6.2, 1.2, 1.5],
+    ['M', 'Steinkugel: rollt auf dich zu, schnell ausweichen', 7.5, 1, 0],
     ['W', 'Alles andere: ausweichen', 7.5, 1.3, 1.6],
-    ['C', 'Container: über die Rampe aufs Dach', 22, 7, 1]
+    ['C', 'Steinpodest: über die Rampe nach oben', 22, 7, 1]
   ];
   for (const [art, text, ent, hoehe, oben] of eintraege) {
     const z = document.createElement('li');
@@ -687,7 +692,7 @@ function zeigeGeschafft() {
     $('gNeuBild').textContent = '';
     $('gNeuBild').append(figurFoto(n));
     $('gNeuName').textContent = FIGUREN[n].name;
-    $('gNeuText').textContent = FIGUREN[n].kann;
+    $('gNeuText').textContent = FIGUREN[n].sprungName + ': ' + FIGUREN[n].sprungText;
     $('gNeuKnopf').dataset.figur = n;
     $('gNeuKnopf').textContent = 'Gleich spielen';
     ton.fanfare();
@@ -902,5 +907,5 @@ if ('serviceWorker' in navigator && window.isSecureContext && location.protocol 
 
 // Nur für den Testlauf: Wird im normalen Spiel nie benutzt.
 if (location.search.includes('test')) window.__spiel = {
-  s: () => s, modus: () => modus, zeichen: () => ({ aufrufe: renderer.info.render.calls, dreiecke: renderer.info.render.triangles, aktive: aktive.size }), starte, schritt, TAKT, lenke, springe, rutsche, daten, zeichneBild, levelFertig, speichere, weltWechselBild, zumMenue, icon: g => { const c = document.createElement('canvas'); c.width = c.height = g; c.getContext('2d').drawImage(figurFoto('gisela'), 0, 0, g, g); return c; }, zeigeFenster, zeigeGeschafft, zeigeEnde, teilZ, teilX, dachHoehe, fallY, setzeModus: m => { modus = m; }
+  s: () => s, modus: () => modus, zeichen: () => ({ aufrufe: renderer.info.render.calls, dreiecke: renderer.info.render.triangles, aktive: aktive.size }), starte, schritt, TAKT, lenke, springe, rutsche, daten, zeichneBild, levelFertig, speichere, weltWechselBild, zumMenue, WELT_BAU, bau, HOEHEN, icon: g => { const c = document.createElement('canvas'); c.width = c.height = g; c.getContext('2d').drawImage(figurFoto('gisela'), 0, 0, g, g); return c; }, zeigeFenster, zeigeGeschafft, zeigeEnde, teilZ, teilX, dachHoehe, fallY, setzeModus: m => { modus = m; }
 };

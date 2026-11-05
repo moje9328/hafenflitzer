@@ -255,6 +255,7 @@ function hindernisForm(o) {
     const f = W.hindernis.fall[skin] || W.hindernis.fall.wurf;
     return ['f' + w + skin, () => bau(f)];
   }
+  if (o.art === 'M') return ['kugel' + w, () => GEMEINSAM.kugel(w)];
   if (o.art === 'B') return ['ball', GEMEINSAM.B];
   if (o.art === 'L') return ['lat', () => bau(WELT_BAU[2].hindernis.laterne)];
   if (o.art === 'Z') return ['welle', () => bau(WELT_BAU[3].hindernis.welle)];
@@ -277,6 +278,11 @@ function pflegeTeile() {
         const ring = holeMesh('warn', GEMEINSAM.warnring, MAT_WARN);
         ring.rotation.x = -Math.PI / 2;
         m.userData.ring = ring;
+      }
+      if (o.art === 'M') {
+        const schatten = holeMesh('kugelschatten', () => schattenForm(1.7), MAT_SCHATTEN);
+        schatten.rotation.x = -Math.PI / 2;
+        m.userData.ring = schatten;
       }
     }
   }
@@ -301,8 +307,15 @@ function pflegeTeile() {
       const rest = Math.max(0, o.d - dist);
       m.rotation.z = Math.cos(rest * 0.18) * 0.14;
     }
-    if (o.art === 'M' && weltJetzt === 3) m.rotation.x = -bildZeit * st.tempo * 0.4; // Das Fass rollt
-    if (o.art === 'M' && weltJetzt === 3) m.position.y = 0;
+    if (o.art === 'M') {
+      // Die Kugel rollt: Dreht sich genau so schnell, wie sie vorankommt
+      m.position.y = KUGEL_R + Math.abs(Math.sin(dist * 0.9)) * 0.06;
+      m.rotation.x = dist * o.vr * 1.6 / KUGEL_R;
+      const rest = z - dist;
+      if (m.userData.ring) m.userData.ring.position.set(x, 0.05, -rest);
+      if (rest < 70 && rest > -6 && Math.random() < 0.3) funkenBei(x + (Math.random() - 0.5) * 2, 0.15, -rest - 1.1, 0xd8c8a8, 1, 1.6);
+      if (Math.abs(rest) < 16 && !o.geruettelt) { o.geruettelt = true; wackle(0.16); }
+    }
     if (o.art === 'Z') {
       const rest = (z - dist);
       m.scale.y = begrenzt(1.5 - rest / 150, 0.45, 1.25);
@@ -330,7 +343,7 @@ function pflegeTeile() {
         }
       }
     }
-    if (o.hupe && !o.gehupt && o.d - dist < st.tempo * 2.2) { o.gehupt = true; ton.hupe(); }
+    if (o.hupe && !o.gehupt && o.d - dist < st.tempo * 2.4) { o.gehupt = true; ton.rumpel(); }
     if (o.weg) {
       const t = st.zeit - o.weg;
       m.position.y += t * 7 - t * t * 8;
@@ -489,11 +502,13 @@ function animiereFigur(f, o) {
     return;
   }
   if (o.fliegt) {
-    f.koerper.rotation.x = -0.35;
-    if (T.armL) T.armL.rotation.x = 2.8 + sw2 * 0.2;
-    if (T.armR) T.armR.rotation.x = 2.8 - sw2 * 0.2;
-    if (T.beinL) T.beinL.rotation.x = 0.5;
-    if (T.beinR) T.beinR.rotation.x = -0.5;
+    // Sitzt in der Badewanne und winkt
+    f.koerper.position.y = 0.32;
+    f.koerper.rotation.x = -0.12;
+    if (T.armL) T.armL.rotation.x = 2.8 + sw2 * 0.25;
+    if (T.armR) T.armR.rotation.x = 2.8 - sw2 * 0.25;
+    if (T.beinL) T.beinL.rotation.x = 1.25;
+    if (T.beinR) T.beinR.rotation.x = 1.25;
     return;
   }
   if (o.springt) {
@@ -503,6 +518,9 @@ function animiereFigur(f, o) {
     if (T.beinL) T.beinL.rotation.x = v > 0 ? -1.1 : -0.5;
     if (T.beinR) T.beinR.rotation.x = v > 0 ? 0.5 : -0.2;
     f.koerper.rotation.x = v > 0 ? -0.2 : 0.1;
+    // Extrasprung in der Luft: ein Salto. Beim Bauchplatscher: Bauch voran.
+    if (o.salto) { f.koerper.position.y = 0.8; f.koerper.rotation.x = -o.salto * Math.PI * 2; for (const p of Object.values(T)) p.position.y = p.userData.y - 0.8; }
+    if (o.ball) { f.koerper.rotation.x = 1.3; f.koerper.position.y = 0.6; }
     return;
   }
   if (g === 'lauf' || g === 'humpel') {
@@ -556,16 +574,20 @@ function animiereFigur(f, o) {
 let laufPhase = 0;
 let schattenMesh = null;
 
-function baueSchatten() {
-  const form = new THREE.CircleGeometry(0.95, 20);
+function schattenForm(r) {
+  const form = new THREE.CircleGeometry(r, 20);
   const n = form.attributes.position.count;
   const farben = new Float32Array(n * 4);
   for (let i = 0; i < n; i++) {
     const x = form.attributes.position.getX(i), y = form.attributes.position.getY(i);
-    farben[i * 4 + 3] = 0.48 * (1 - Math.hypot(x, y) / 0.95);
+    farben[i * 4 + 3] = 0.48 * (1 - Math.hypot(x, y) / r);
   }
   form.setAttribute('color', new THREE.BufferAttribute(farben, 4));
-  schattenMesh = new THREE.Mesh(form, MAT_SCHATTEN);
+  return form;
+}
+
+function baueSchatten() {
+  schattenMesh = new THREE.Mesh(schattenForm(0.95), MAT_SCHATTEN);
   schattenMesh.rotation.x = -Math.PI / 2;
   schattenMesh.frustumCulled = false;
   szene.add(schattenMesh);
@@ -767,6 +789,7 @@ function zeichneBild(dt) {
 
   // Die Figur
   const f = spieler;
+  const salto = st.zeit - st.saltoZeit;
   const y = st.y;
   laufPhase += dt * (st.tempo > 0 ? Math.max(9, st.tempo * 0.95) : 0) * (modus === 'menue' ? 0.8 : 1);
   f.wurzel.position.set(st.x, y, 0);
@@ -779,7 +802,9 @@ function zeichneBild(dt) {
     rutscht: st.rutsch > 0,
     fliegt: st.flug > 0,
     springt: !st.amBoden && st.flug <= 0 && st.y > st.boden + 0.3,
-    vy: st.vy
+    vy: st.vy,
+    salto: salto >= 0 && salto < 0.42 && !st.amBoden ? salto / 0.42 : 0,
+    ball: st.stampf
   });
   if (st.tot > 0) {
     f.koerper.rotation.x = -1.5;
@@ -839,7 +864,7 @@ function stelleKamera(dt) {
     return;
   }
   kamX += (st.x * 0.72 - kamX) * Math.min(1, dt * 7);
-  const zielY = st.flug > 0 ? st.y * 0.86 : Math.min(st.y, 4) * 0.55;
+  const zielY = st.flug > 0 ? st.y : Math.min(st.y, 4) * 0.55;
   kamY += (zielY - kamY) * Math.min(1, dt * (st.amBoden ? 5 : 3));
   let wx = 0, wy = 0;
   if (wackeln > 0) {
@@ -861,14 +886,27 @@ function pflegeZubehoer(f) {
   const st = s;
   if (!zubehoer) {
     zubehoer = {
-      ente: new THREE.Mesh(formVon('flugente', () => bau(b => {
-        b.rund(1.1, 0, -0.1, 0.1, [0xf0c00a, 0xffe030], { s: [0.95, 0.75, 1.35] });
-        b.rund(0.6, 0, 0.82, -0.9, 0xffe030);
-        b.rund(0.33, 0, 0.72, -1.48, 0xff8a1a, { s: [1.2, 0.45, 1] });
-        b.rund(0.14, -0.28, 1.02, -1.38, 0x17151c, { seg: 8, seg2: 6 });
-        b.rund(0.14, 0.28, 1.02, -1.38, 0x17151c, { seg: 8, seg2: 6 });
-        b.zyl(0.4, 0.55, 1.5, 0, -0.5, 1.5, 0xe8ecf2, { rx: Math.PI / 2, seg: 12 });
-        b.kegel(0.46, 1.2, 0, -0.5, 2.7, 0xff8a1a, { rx: Math.PI / 2, seg: 10 });
+      wanne: new THREE.Mesh(formVon('flugwanne', () => bau(b => {
+        // Die fliegende Badewanne, samt Wasserhahn und Quietscheente
+        b.rund(1.05, 0, 0.3, 0, [0xc8d6e0, 0xffffff], { s: [0.86, 0.55, 1.28], seg: 18, seg2: 12 });
+        b.ring(0.88, 0.075, 0, 0.74, 0, 0xffffff, { rx: Math.PI / 2, s: [1, 1.46, 1], seg: 6, seg2: 24 });
+        b.rund(0.84, 0, 0.72, 0, 0x4ab8e8, { s: [1, 0.05, 1.42], seg: 16, seg2: 6 });
+        for (const [x, z] of [[-0.55, -0.85], [0.55, -0.85], [-0.55, 0.85], [0.55, 0.85]]) b.rund(0.13, x, -0.22, z, 0xf2c21a, { seg: 8, seg2: 6 });
+        b.zyl(0.05, 0.05, 0.42, 0, 0.98, -1.14, 0xd8dce4, { seg: 8 });
+        b.box(0.08, 0.08, 0.3, 0, 1.17, -1.02, 0xd8dce4);
+        b.rund(0.16, 0.56, 0.86, 0.72, 0xffdc2a, { seg: 8, seg2: 6 });
+        b.rund(0.11, 0.56, 1.06, 0.62, 0xffdc2a, { seg: 8, seg2: 6 });
+        b.rund(0.05, 0.56, 1.05, 0.52, 0xff8a1a, { seg: 6, seg2: 4 });
+        for (let i = 0; i < 6; i++) b.rund(0.11 + (i % 2) * 0.05, -0.44 + i * 0.18, 0.78, 0.5 + ((i * 3) % 4) * 0.13, 0xffffff, { seg: 7, seg2: 5 });
+      })), MAT),
+      fluegelL: new THREE.Mesh(formVon('wflugel', () => bau(b => {
+        b.rund(0.7, 0.62, 0, 0, 0xffffff, { s: [1, 0.12, 0.55], seg: 12, seg2: 7 });
+        b.rund(0.42, 1.1, -0.02, 0.06, 0xdce6f0, { s: [1, 0.12, 0.55], seg: 10, seg2: 6 });
+      })), MAT),
+      fluegelR: new THREE.Mesh(formVon('wflugel', () => null), MAT),
+      seil: new THREE.Mesh(formVon('hakenseil', () => bau(b => {
+        b.box(0.04, 9, 0.04, 0, 4.5, 0, 0x6e4a26);
+        b.ring(0.14, 0.03, 0, 0, 0, 0xc4ced8, { seg: 5, seg2: 10 });
       })), MAT),
       ring: new THREE.Mesh(formVon('fring', () => bau(b => {
         for (let i = 0; i < 12; i++) { const w = (i / 12) * Math.PI * 2; b.rund(0.17, Math.cos(w) * 0.76, 0, Math.sin(w) * 0.76, i % 2 ? 0xffffff : 0xf0382e, { seg: 10, seg2: 7 }); }
@@ -880,9 +918,24 @@ function pflegeZubehoer(f) {
     for (const m of Object.values(zubehoer)) { m.frustumCulled = false; szene.add(m); }
   }
   const z = zubehoer;
-  z.ente.visible = st.flug > 0;
-  if (st.flug > 0) { z.ente.position.set(st.x, st.y - 0.72, 0.1);
-    z.ente.scale.setScalar(0.72); z.ente.rotation.set(-0.18 + Math.sin(bildZeit * 7) * 0.05, 0, Math.sin(bildZeit * 3) * 0.12); }
+  const fliegt = st.flug > 0;
+  z.wanne.visible = z.fluegelL.visible = z.fluegelR.visible = fliegt;
+  if (fliegt) {
+    const wippen = Math.sin(bildZeit * 4) * 0.08, kippen = Math.sin(bildZeit * 3) * 0.08, schlag = Math.sin(bildZeit * 22) * 0.75;
+    z.wanne.scale.setScalar(0.85);
+    z.fluegelL.scale.setScalar(0.72);
+    z.fluegelR.scale.setScalar(0.72);
+    z.wanne.position.set(st.x, st.y - 0.05 + wippen, 0);
+    z.wanne.rotation.set(-0.06, 0, kippen);
+    z.fluegelR.position.set(st.x + 0.72, st.y + 0.65 + wippen, 0.15);
+    z.fluegelR.rotation.set(0, 0, kippen + schlag * 0.8 + 0.2);
+    z.fluegelL.position.set(st.x - 0.72, st.y + 0.65 + wippen, 0.15);
+    z.fluegelL.rotation.set(0, Math.PI, -(kippen - schlag * 0.8 - 0.2));
+    if (Math.random() < 0.12) funkenBei(st.x, st.y + 0.1, 0.6, 0xbfe8ff, 1, 1.4);
+  }
+  // Pias Enterhaken
+  z.seil.visible = !!st.fig.haken && st.haengen > 0;
+  if (z.seil.visible) z.seil.position.set(st.x + 0.36, st.y + 1.55, 0);
   z.ring.visible = st.ring;
   if (st.ring) z.ring.position.set(st.x, st.y + 0.75, 0);
   z.magnet.visible = st.magnet > 0;

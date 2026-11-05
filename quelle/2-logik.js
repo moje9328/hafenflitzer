@@ -2,7 +2,7 @@
 //
 // Jedes Hindernis steht in einer Spur an einer festen Stelle d (Meter).
 // Arten: niedrig (J) drüberspringen, hoch (S) drunter durchrutschen, wand (W) ausweichen,
-// dach (C) ein Container, auf den man laufen kann, faehrt (M) kommt entgegen,
+// dach (C) ein Steinpodest, auf das man laufen kann, faehrt (M) eine Steinkugel rollt entgegen,
 // ball (B) kullert quer, laterne (L) schwingt quer, welle (Z) rollt über alle Spuren, faellt (F) landet von oben.
 //
 // Alles, was sich bewegt, hängt am zurückgelegten Weg des Spielers. So ist es bei jedem Tempo fair
@@ -12,7 +12,7 @@ const HOEHEN = {
   J: { y0: 0, y1: 1.05, t: 0.5 },
   S: { y0: 1.12, y1: 3.0, t: 0.35 },
   W: { y0: 0, y1: 3.2, t: 0.9 },
-  M: { y0: 0, y1: 2.5, t: 1.6, vr: 0.55 },
+  M: { y0: 0, y1: 2.5, t: 1.1, vr: 0.55 },
   B: { y0: 0, y1: 1.15, t: 0.7 },
   L: { y0: 1.12, y1: 3.0, t: 0.45 },
   Z: { y0: 0, y1: 1.0, t: 0.8, vr: 0.5 },
@@ -124,7 +124,7 @@ const MUSTER_BAU = {
     }
     return stelle - schritt - d + 6;
   },
-  // Container in einer Spur daneben, mit Rampe. Oben gibt es Münzen.
+  // Ein Podest in einer Spur daneben, mit Rampe. Oben gibt es Münzen.
   container(k, d) {
     const p = k.bewege();
     const sp = k.z.wahl(k.andere(p));
@@ -149,8 +149,8 @@ const MUSTER_BAU = {
     if (Math.abs(neben - p) === 1) k.muenzeReihe(neben, d + 12, d + 12 + lang / 2, DACH_HOCH + 0.9, 3);
     return lang + 10;
   },
-  // Kommt entgegen. Die Spur wird rechtzeitig vorher angekündigt.
-  stapler(k, d) {
+  // Eine große Steinkugel rollt auf dich zu. Sie rollt früh los und rumpelt laut.
+  kugel(k, d) {
     const p = k.bewege();
     const sp = k.z.wahl(k.andere(p));
     k.teil('M', sp, d, { hupe: true });
@@ -213,6 +213,7 @@ function fallMuster(k, d, skin) {
   return 8;
 }
 
+const FLUG_Y = 4.4;         // So hoch fliegt die Badewanne
 const LUFT_MIN = 1.06;      // Selbst bei hohem Tempo immer mindestens so viele Sekunden Reaktionszeit
 
 // Erzeugt die Strecke von k.bis bis zur Stelle bis.
@@ -240,12 +241,14 @@ function bauAbschnitt(k, bis, plan) {
     d += tempo * luft;
   }
   k.bis = d;
+  // Immer nach Stelle sortiert halten: Boden und Treffer verlassen sich darauf
+  k.teile.sort((a, b) => a.d - b.d);
 }
 
 function levelPlan(nr, stufe) {
   const L = LEVEL[nr - 1];
   const w = Math.floor((nr - 1) / 6);
-  const arten = ['magnet', 'goldfisch', 'ring', 'stiefel', 'ente'];
+  const arten = ['magnet', 'goldfisch', 'ring', 'stiefel', 'federn', 'magnet', 'goldfisch', 'stiefel', 'federn', 'wanne'];
   if (nr >= 4) arten.push('broetchen');
   return { start: 0, laenge: L.laenge, v0: L.v0, v1: L.v1, luft: L.luft, muster: L.muster, welt: w, weltLuft: WELTEN[w].luft, hilfeAlle: 170, hilfeArten: arten };
 }
@@ -255,7 +258,7 @@ function endlosPlan(stufeNr, start) {
   const reihe = LEVEL.slice(w * 6, w * 6 + 6).filter(x => !x.boss);
   const muster = reihe[reihe.length - 1].muster.concat(reihe[reihe.length - 2].muster);
   const v0 = Math.min(13 + (stufeNr - 1) * 2.4, 27);
-  return { start, laenge: ENDLOS_WELT_METER, v0, v1: Math.min(v0 + 2.4, 30), luft: Math.max(1.55 - (stufeNr - 1) * 0.07, 1.12), muster, welt: w, weltLuft: WELTEN[w].luft, hilfeAlle: 190, hilfeArten: ['magnet', 'goldfisch', 'ring', 'stiefel', 'ente', 'broetchen'] };
+  return { start, laenge: ENDLOS_WELT_METER, v0, v1: Math.min(v0 + 2.4, 30), luft: Math.max(1.55 - (stufeNr - 1) * 0.07, 1.12), muster, welt: w, weltLuft: WELTEN[w].luft, hilfeAlle: 190, hilfeArten: ['magnet', 'goldfisch', 'ring', 'stiefel', 'federn', 'magnet', 'goldfisch', 'stiefel', 'federn', 'wanne', 'broetchen'] };
 }
 
 // --------------------------- Spielzustand ---------------------------
@@ -268,10 +271,10 @@ function neuerZustand(levelNr, endlos) {
   const f = {
     stufe, fig, levelNr, endlos,
     k: null, plan: null, welt: 0, weltStufe: 1, naechsteWeltBei: 0,
-    dist: 0, tempo: 0, x: 0, spur: 1, xVorher: 0, y: 0, vy: 0, boden: 0, amBoden: true, rutsch: 0, sprungNochmal: false,
+    dist: 0, tempo: 0, x: 0, spur: 1, xVorher: 0, y: 0, vy: 0, boden: 0, amBoden: true, rutsch: 0, luftSpruenge: 0, haengen: 0, kettenStufe: 0, landeZeit: -9, stampf: false, sprungAktiv: false, saltoZeit: -9, sprungPuffer: 0,
     tempoFaktor: 1, schutz: 0, stolpern: 0, flug: 0, flugHoehe: 0, zeit: 0, wechselZeit: 9, aufDach: false, warAufDach: false,
     herzen: stufe.herzen, ring: !!fig.startRing, punkte: 0, muenzenHier: 0, kette: 1, kettenStand: 0, getroffenHier: 0,
-    magnet: 0, stiefel: 0, goldfisch: 0, teilIndex: 0,
+    magnet: 0, stiefel: 0, goldfisch: 0, federn: 0, teilIndex: 0,
     meldung: null, blase: null, fertig: 0, tot: 0, ergebnis: null, rekordAmStart: fortschritt().rekord,
     talerHier: 0, ziel: Infinity, statBot: { sprung: 0, rutsch: 0, treffer: 0, seite: 0, muenzen: 0 }, angezeigt: {}
   };
@@ -285,7 +288,8 @@ function ladeLevel(nr, endlos = false) {
   st.dist = 0;
   st.x = 0; st.xVorher = 0; st.spur = 1; st.y = 0; st.vy = 0; st.boden = 0; st.amBoden = true; st.rutsch = 0;
   st.flug = 0; st.flugHoehe = 0; st.schutz = 0; st.stolpern = 0; st.tempoFaktor = 1;
-  st.magnet = 0; st.stiefel = 0; st.goldfisch = 0;
+  st.magnet = 0; st.stiefel = 0; st.goldfisch = 0; st.federn = 0;
+  st.luftSpruenge = 0; st.haengen = 0; st.kettenStufe = 0; st.landeZeit = -9; st.stampf = false; st.sprungAktiv = false; st.saltoZeit = -9; st.sprungPuffer = 0;
   st.muenzenHier = 0; st.getroffenHier = 0; st.teilIndex = 0; st.fertig = 0; st.tot = 0; st.ergebnis = null; st.zeit = 0;
   const seed = endlos ? (Math.random() * 1e9) | 0 : 4021 + nr * 977 + STUFEN_NAMEN.indexOf(daten.stufe) * 31;
   st.k = new Kurs(seed, st.stufe, endlos);
@@ -324,31 +328,75 @@ function lenke(richtung) {
   s.wechselZeit = 0;
   ton.wusch();
 }
+// Jede Figur springt anders: Die Werte stehen oben bei FIGUREN
 function springe() {
   if (!s || s.tot || s.fertig || s.flug > 0) return;
+  const f = s.fig;
   if (s.amBoden) {
     s.rutsch = 0;
-    s.vy = SPRUNG_V * sprungFaktor();
+    let kraft = 1;
+    if (f.kettenSprung) {
+      s.kettenStufe = s.zeit - s.landeZeit < 0.4 ? Math.min(s.kettenStufe + 1, 2) : 0;
+      kraft = [1, 1.2, 1.42][s.kettenStufe];
+      if (s.kettenStufe) melde(s.kettenStufe === 1 ? 'FEDER!' : 'SUPERFEDER!', 0.6);
+    }
+    s.vy = SPRUNG_V * sprungFaktor() * kraft;
     s.amBoden = false;
-    s.sprungNochmal = !!s.fig.doppel;
+    s.sprungAktiv = true;
+    s.haengen = 0;
+    s.stampf = false;
+    s.luftSpruenge = (f.luftSpruenge || 0) + (s.federn > 0 ? 1 : 0);
+    s.schwebte = false;
     s.statBot.sprung++;
     zaehle('sprung');
     ton.hopp();
-  } else if (s.sprungNochmal) {
-    s.sprungNochmal = false;
-    s.vy = SPRUNG_V * 0.85 * sprungFaktor();
-    ton.hopp();
+    staub();
+  } else if (s.luftSpruenge > 0) {
+    s.luftSpruenge--;
+    if (f.haken && s.haengen <= 0) {
+      s.vy = 0;
+      s.haengen = 0.55;
+      s.hakenZeit = s.zeit;
+      ton.haken();
+    } else {
+      s.vy = SPRUNG_V * (f.luftKraft || 0.85) * sprungFaktor();
+      s.haengen = 0;
+      s.saltoZeit = s.zeit;
+      ton.hopp();
+    }
   } else {
     s.sprungPuffer = 0.14;   // Kurz vor der Landung gedrückt: Gilt, sobald die Füße unten sind
   }
 }
 function rutsche() {
   if (!s || s.tot || s.fertig || s.flug > 0) return;
-  if (!s.amBoden) s.vy = Math.min(s.vy, -24);   // In der Luft: schnell nach unten
+  if (!s.amBoden) {
+    s.vy = Math.min(s.vy, -24);   // In der Luft: schnell nach unten
+    s.haengen = 0;
+    if (s.fig.platsch) s.stampf = true;
+  }
   s.rutsch = RUTSCH_DAUER * (s.fig.rutsch || 1);
   s.statBot.rutsch++;
   zaehle('rutsch');
   ton.rutsch();
+}
+// Rudis Bauchplatscher: Kleine Hindernisse direkt vor ihm fliegen weg
+function platsch() {
+  const st = s;
+  let weg = 0;
+  for (let i = st.teilIndex; i < st.k.teile.length; i++) {
+    const o = st.k.teile[i];
+    if (o.d > st.dist + 8) break;
+    if (o.weg || o.d < st.dist - 1 || !['J', 'F', 'B'].includes(o.art)) continue;
+    if (Math.abs(teilX(o, st.dist) - st.x) > 1.5) continue;
+    o.weg = st.zeit;
+    weg++;
+  }
+  wackle(0.45);
+  ton.rumms();
+  if (grafikBereit) funkenBei(st.x, st.y + 0.2, -1, 0xfff4e4, 18, 6);
+  sage('PLATSCH!', 0.8);
+  if (weg) punkte(60 * weg);
 }
 function sprungFaktor() {
   const w = s ? WELTEN[s.welt] : WELTEN[0];
@@ -401,7 +449,7 @@ function schritt(dt) {
   let ziel = (st.plan.v0 + (st.plan.v1 - st.plan.v0) * fortschrittWert) * st.stufe.tempo;
   st.tempoFaktor = Math.min(1, st.tempoFaktor + dt * 0.5);
   if (st.fertig > 0) { st.fertig += dt; ziel *= Math.max(0.15, 1 - st.fertig * 0.6); }
-  st.tempo = ziel * (st.flug > 0 ? 1.35 : 1) * st.tempoFaktor;
+  st.tempo = ziel * (st.flug > 0 ? 1.12 : 1) * st.tempoFaktor;
   const vorher = st.dist;
   st.dist += st.tempo * dt;
   zaehleMeter(st.dist - vorher);
@@ -429,6 +477,7 @@ function schritt(dt) {
   st.stolpern = Math.max(0, st.stolpern - dt);
   st.magnet = Math.max(0, st.magnet - dt);
   st.stiefel = Math.max(0, st.stiefel - dt);
+  st.federn = Math.max(0, st.federn - dt);
   st.goldfisch = Math.max(0, st.goldfisch - dt);
   if (st.flug > 0) { st.flug = Math.max(0, st.flug - dt); if (st.flug === 0) { st.schutz = Math.max(st.schutz, 1.2); st.vy = 0; st.amBoden = false; } }
   if (st.rutsch > 0) st.rutsch = Math.max(0, st.rutsch - dt);
@@ -465,7 +514,7 @@ function bewegeSpieler(dt, stumm) {
   else if (st.x > zielX) st.x = Math.max(zielX, st.x - v * dt);
 
   if (st.flug > 0) {
-    st.flugHoehe += (6.2 - st.flugHoehe) * Math.min(1, dt * 4);
+    st.flugHoehe += (FLUG_Y - st.flugHoehe) * Math.min(1, dt * 4.5);
     st.y = st.flugHoehe;
     return;
   }
@@ -475,15 +524,23 @@ function bewegeSpieler(dt, stumm) {
   // Boden unter den Füßen
   const boden = bodenUnter(st.x, st.dist, st.y);
   st.boden = boden;
-  const schwere = SCHWERE * WELTEN[st.welt].schwere * (st.vy < 0 ? (st.fig.schweben || 1) : 1);
-  st.vy -= schwere * dt;
+  const schwere = SCHWERE * WELTEN[st.welt].schwere * (st.fig.schwereMal || 1) * (st.vy < 0 ? (st.fig.schweben || 1) : 1);
+  // Schwebesprung: Oben angekommen bleibt die Figur kurz stehen
+  if (st.fig.schweber && st.sprungAktiv && !st.schwebte && !st.amBoden && st.vy <= 0) { st.schwebte = true; st.haengen = 0.42; }
+  if (st.haengen > 0) { st.haengen -= dt; st.vy = 0; }
+  else st.vy -= schwere * dt;
   st.y += st.vy * dt;
   if (st.y <= boden) {
     if (!st.amBoden && st.vy < -8 && !stumm) { ton.landen(); staub(); }
     st.y = boden;
     st.vy = 0;
+    const warInLuft = !st.amBoden;
     st.amBoden = true;
-    st.sprungNochmal = false;
+    st.sprungAktiv = false;
+    st.luftSpruenge = 0;
+    st.haengen = 0;
+    if (warInLuft) st.landeZeit = st.zeit;
+    if (st.stampf) { st.stampf = false; if (!stumm) platsch(); }
     if (st.sprungPuffer > 0) { st.sprungPuffer = 0; springe(); }
   } else if (st.y > boden + 0.25) {
     st.amBoden = false;
@@ -503,7 +560,8 @@ function bodenUnter(x, dist, y) {
     if (Math.abs(x - SPUR_X[o.spur]) > 1.1) continue;
     const h = dachHoehe(o, dist);
     if (h < 0) continue;
-    if (y >= h - 0.7 && h > boden) boden = h;
+    const aufRampe = o.rampe && dist - o.d < o.rampe;
+    if ((aufRampe || y >= h - 0.7) && h > boden) boden = h;
   }
   return boden;
 }
@@ -531,6 +589,7 @@ function pruefeTeile() {
       if (dach < 0) continue;
       if (Math.abs(st.x - SPUR_X[o.spur]) >= BREITE_TREFFER) continue;
       if (st.y >= dach - 0.7) continue;
+      if (o.rampe && st.dist - o.d < o.rampe) continue;   // Eine Rampe stoppt nie, auch nicht von der Seite
       if (st.schutz > 0) continue;
       if (Math.abs(st.xVorher - SPUR_X[o.spur]) >= BREITE_TREFFER - 0.02 || st.dist - o.d > 1) seitenStoss();
       else treffer(o);
@@ -624,11 +683,11 @@ function treffer(o) {
   st.statBot.treffer++;
   st.kette = Math.max(1, Math.ceil(st.kette / 2));
   st.kettenStand = 0;
-  st.schutz = 1.9;
+  st.schutz = 1.3;
   st.stolpern = 0.7;
   st.tempoFaktor = 0.45;
   st.rutsch = 0;
-  if (o.art !== 'C' && o.art !== 'W') o.weg = st.zeit;
+  if (o.art !== 'C') o.weg = st.zeit;   // Es fliegt weg, damit man nicht sichtbar hindurchläuft
   // Gegen einen Container: Die Figur kraxelt oben drauf, statt drin festzustecken
   if (o.art === 'C') { st.y = o.y1 + 0.05; st.vy = 3; st.amBoden = false; }
   sage(st.fig.treffer[Math.floor(Math.random() * st.fig.treffer.length)], 1.2);
@@ -732,20 +791,22 @@ function nimmHilfe(typ) {
   if (typ === 'ring') { st.ring = true; melde('RETTUNGSRING', 1.2); return; }
   if (typ === 'magnet') st.magnet = hilfeDauer('magnet');
   if (typ === 'stiefel') st.stiefel = hilfeDauer('stiefel');
+  if (typ === 'federn') { st.federn = hilfeDauer('federn'); if (!st.amBoden) st.luftSpruenge++; }
   if (typ === 'goldfisch') st.goldfisch = hilfeDauer('goldfisch');
-  if (typ === 'ente') {
-    st.flug = hilfeDauer('ente');
+  if (typ === 'wanne') {
+    st.flug = hilfeDauer('wanne');
     st.rutsch = 0;
-    // Oben hängt eine Münzspur
+    st.haengen = 0;
+    // Eine kurze Münzspur hängt in der Luft
     const k = st.k;
-    const bis = st.dist + st.flug * st.tempo * 1.2;
+    const bis = st.dist + st.flug * st.tempo * 1.05;
     let spur = st.spur;
-    for (let d = st.dist + 16; d < bis; d += 3) {
-      if (Math.random() < 0.09) spur = begrenzt(spur + (Math.random() < 0.5 ? -1 : 1), 0, 2);
-      k.muenzen.push({ spur, d, y: 7, weg: false, bonus: true });
+    for (let d = st.dist + 12; d < bis; d += 3) {
+      if (Math.random() < 0.14) spur = begrenzt(spur + (Math.random() < 0.5 ? -1 : 1), 0, 2);
+      k.muenzen.push({ spur, d, y: FLUG_Y + 0.9, weg: false, bonus: true });
       k.muenzenGesamt++;
     }
-    ton.rakete();
+    ton.wanne();
   }
   melde(grossName(HILFEN[typ].name), 1.2);
 }
