@@ -944,15 +944,43 @@ function pflegeZubehoer(f) {
   if (st.stiefel > 0) { z.stiefelL.position.set(st.x - 0.2, st.y + 0.02, 0); z.stiefelR.position.set(st.x + 0.2, st.y + 0.02, 0); }
 }
 
-// Wird das Bild zu langsam, rechnet das Spiel kleiner, damit es auf jedem Handy flüssig bleibt
-let tempoSumme = 0, tempoAnzahl = 0;
+// Wird das Bild zu langsam, rechnet das Spiel kleiner. Aber nur, wenn das wirklich hilft:
+// Im Stromsparmodus sind viele Handys fest auf 30 Bilder begrenzt, da bliebe es sonst ohne Nutzen unscharf.
+const PIXEL_MAX = 2.5, PIXEL_MIN = 1.5;
+let tempoListe = [], tempoRuhe = 0, tempoStufe = 0, tempoVorher = 0, tempoAlt = 1;
+
+function pixelBasis() { return Math.min(window.devicePixelRatio || 1, PIXEL_MAX); }
+function setzeQualitaet(q) {
+  bildQualitaet = q;
+  passeGroesseAn();
+  renderer.render(szene, kamera);
+  tempoRuhe = 30;
+}
+
 function misseTempo(dt) {
-  tempoSumme += dt;
-  tempoAnzahl++;
-  if (tempoAnzahl < 45) return;
-  const mittel = tempoSumme / tempoAnzahl;
-  tempoSumme = 0; tempoAnzahl = 0;
-  if (mittel > 1 / 42 && bildQualitaet > 0.5) { bildQualitaet = Math.max(0.5, bildQualitaet - 0.15); passeGroesseAn(); renderer.render(szene, kamera); }
+  if (modus !== 'lauf' || tempoStufe === 3) { tempoListe.length = 0; return; }
+  if (tempoRuhe > 0) { tempoRuhe--; return; }
+  tempoListe.push(dt);
+  if (tempoListe.length < 60) return;
+  // Der Mittelwert ohne Ausreißer, damit einzelne Ruckler nichts auslösen
+  const mitte = tempoListe.sort((x, y) => x - y)[30];
+  tempoListe.length = 0;
+  const zuLangsam = mitte > 1 / 42;
+  const boden = Math.min(1, PIXEL_MIN / pixelBasis());
+  if (tempoStufe === 0) {
+    if (!zuLangsam || boden >= 1) return;
+    // Probe: Wird es mit der kleinsten Auflösung schneller?
+    tempoVorher = mitte; tempoAlt = bildQualitaet; tempoStufe = 1;
+    setzeQualitaet(boden);
+  } else if (tempoStufe === 1) {
+    // Nichts gewonnen: Das Tempo liegt nicht an der Auflösung, also zurück auf scharf
+    if (mitte > tempoVorher * 0.92) { tempoStufe = 3; setzeQualitaet(tempoAlt); return; }
+    tempoStufe = 2;
+    setzeQualitaet((boden + tempoAlt) / 2);
+  } else {
+    if (zuLangsam) setzeQualitaet(boden);
+    tempoStufe = 3;
+  }
 }
 
 function passeGroesseAn() {
@@ -960,7 +988,7 @@ function passeGroesseAn() {
   const b = window.innerWidth, h = window.innerHeight;
   const hoch = h > b;
   bildGroesse = { b, h, hoch };
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2) * bildQualitaet);
+  renderer.setPixelRatio(pixelBasis() * bildQualitaet);
   renderer.setSize(b, h, false);
   const a = b / h;
   kamera.aspect = a;

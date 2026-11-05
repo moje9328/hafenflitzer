@@ -907,5 +907,6 @@ if ('serviceWorker' in navigator && window.isSecureContext && location.protocol 
 
 // Nur für den Testlauf: Wird im normalen Spiel nie benutzt.
 if (location.search.includes('test')) window.__spiel = {
+  misseTempo, bildBreite: () => $('bild').width,
   s: () => s, modus: () => modus, zeichen: () => ({ aufrufe: renderer.info.render.calls, dreiecke: renderer.info.render.triangles, aktive: aktive.size }), starte, schritt, TAKT, lenke, springe, rutsche, daten, zeichneBild, levelFertig, speichere, weltWechselBild, zumMenue, WELT_BAU, bau, HOEHEN, icon: g => { const c = document.createElement('canvas'); c.width = c.height = g; c.getContext('2d').drawImage(figurFoto('gisela'), 0, 0, g, g); return c; }, zeigeFenster, zeigeGeschafft, zeigeEnde, teilZ, teilX, dachHoehe, fallY, setzeModus: m => { modus = m; }
 };
